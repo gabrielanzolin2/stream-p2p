@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: stream-p2p-ultra
+    env: static
+    buildCommand: ""
+    staticPublishPath: .
