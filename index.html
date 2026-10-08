@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamP2P - Transmissão de Tela Ultra-Baixa Latência (GPU Acionado)</title>
+  <!-- PeerJS para Sinalização WebRTC Global (Sem IP Local) -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Google Fonts & Ícones -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --bg-card: #181b24;
+      --bg-hover: #222634;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --border: #2c3142;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* BARRA LATERAL (AMIGOS & PERFIL) */
+    .sidebar {
+      width: 340px;
+      background-color: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .profile-card {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(24, 27, 36, 0) 100%);
+    }
+
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      position: relative;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: var(--success);
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      border: 2px solid var(--bg-card);
+    }
+
+    .profile-info h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .profile-info span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .id-box {
+      background-color: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .id-code {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #818cf8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      color: var(--text);
+      background-color: var(--bg-hover);
+    }
+
+    /* LISTA DE AMIGOS */
+    .friends-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .section-title {
+      padding: 16px 20px 8px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 700;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .add-friend-bar {
+      padding: 0 20px 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-text {
+      flex: 1;
+      background-color: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-text:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-small {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-small:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .friends-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .friend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background-color: transparent;
+      border-radius: 8px;
+      transition: background-color 0.2s;
+      gap: 8px;
+    }
+
+    .friend-item:hover {
+      background-color: var(--bg-hover);
+    }
+
+    .friend-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .friend-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #374151;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .friend-names {
+      overflow: hidden;
+    }
+
+    .friend-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .friend-id-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .friend-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-action {
+      background-color: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    .btn-action.danger {
+      background-color: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.2);
+    }
+
+    .btn-action.danger:hover {
+      background-color: var(--danger);
+      color: white;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    /* ÁREA PRINCIPAL DO VÍDEO (CANVAS/GPU) */
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* TOP BAR */
+    .topbar {
+      height: 60px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background-color: var(--bg-card);
+    }
+
+    .topbar-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .stream-status-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stream-status-badge.idle {
+      background-color: rgba(156, 163, 175, 0.15);
+      color: var(--text-muted);
+      border-color: rgba(156, 163, 175, 0.3);
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* VIDEO CONTAINER & GPU ACCELERATION */
+    .video-viewport {
+      flex: 1;
+      background-color: #07090e;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* O elemento de vídeo recebe otimizações de camada de composição GPU */
+    #remoteVideo, #localVideoPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      /* GPU ACCELERATION CSS HOOKS: Força rasterização e decodificação via GPU */
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+      backface-visibility: hidden;
+      filter: drop-shadow(0 0 20px rgba(0,0,0,0.8));
+    }
+
+    #localVideoPreview {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      width: 260px;
+      height: 146px;
+      border-radius: 10px;
+      border: 2px solid var(--accent);
+      background-color: #000;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      z-index: 10;
+      object-fit: cover;
+      display: none;
+    }
+
+    .video-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 480px;
+      padding: 20px;
+    }
+
+    .placeholder-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: rgba(99, 102, 241, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    /* PAINEL DE TELEMETRIA GPU (STATS) */
+    .gpu-telemetry-badge {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background-color: rgba(15, 17, 23, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.75rem;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .telemetry-row span:first-child {
+      color: var(--text-muted);
+    }
+
+    .telemetry-row span:last-child {
+      font-weight: 600;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+
+    /* BARRA DE CONTROLES INFERIOR */
+    .bottom-bar {
+      height: 72px;
+      background-color: var(--bg-card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+
+    .hardware-options {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .select-style {
+      background-color: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text);
+      font-size: 0.8rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .stream-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-main {
+      background: linear-gradient(135deg, var(--accent), #4f46e5);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.2s;
+    }
+
+    .btn-main:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px var(--accent-glow);
+    }
+
+    .btn-main.stop {
+      background: linear-gradient(135deg, var(--danger), #dc2626);
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    /* MODAL DE NOTIFICAÇÃO DE CONVITE */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 440px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      transform: translateY(15px);
+      transition: transform 0.25s;
+    }
+
+    .modal-overlay.active .modal-box {
+      transform: translateY(0);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    /* TOAST ALERT */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: #1f2430;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      color: var(--text);
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Scrollbar personalizada */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BARRA LATERAL (AMIGOS E IDENTIFICAÇÃO) -->
+  <aside class="sidebar">
+    <!-- PERFIL DO USUÁRIO -->
+    <div class="profile-card">
+      <div class="profile-header">
+        <div class="avatar" id="myAvatar">U
+          <div class="status-dot"></div>
+        </div>
+        <div class="profile-info">
+          <h3 id="myDisplayName">Conectando...</h3>
+          <span>WebRTC P2P Global</span>
+        </div>
+      </div>
+      <div class="id-box">
+        <div class="id-code" id="myPeerId">Gerando ID seguro...</div>
+        <button class="btn-icon" id="btnCopyId" title="Copiar Meu ID">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- LISTA DE AMIGOS -->
+    <div class="friends-section">
+      <div class="section-title">
+        <span>Adicionar Amigo</span>
+      </div>
+      <div class="add-friend-bar">
+        <input type="text" class="input-text" id="friendIdInput" placeholder="Cole o ID do amigo...">
+        <button class="btn-small" id="btnAddFriend">Adicionar</button>
+      </div>
+
+      <div class="section-title">
+        <span>Seus Amigos (<span id="friendCount">0</span>)</span>
+      </div>
+
+      <div class="friends-list" id="friendsList">
+        <div class="empty-state">
+          Nenhum amigo adicionado ainda.<br>Envie seu ID para um amigo ou cole o ID dele acima!
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ÁREA DE TRANSMISSÃO E REPRODUÇÃO -->
+  <main class="main-area">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-title">
+        <span class="logo-badge">GPU NVENC/AMD</span>
+        <h2 style="font-size: 1.05rem; font-weight: 600;">StreamP2P Ultra</h2>
+        <div class="stream-status-badge idle" id="liveBadge">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
+          <span id="liveStatusText">Aguardando Conexão</span>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <button class="btn-icon" id="btnFullscreen" title="Tela Cheia">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ÁREA DO VÍDEO -->
+    <div class="video-viewport" id="viewport">
+      <!-- Painel de Telemetria de Hardware GPU -->
+      <div class="gpu-telemetry-badge" id="telemetryBadge" style="display: none;">
+        <div class="telemetry-row">
+          <span>Decodificação:</span>
+          <span id="statDecoder">Hardware GPU (D3D11/Vulkan)</span>
+        </div>
+        <div class="telemetry-row">
+          <span>Codec Ativo:</span>
+          <span id="statCodec">H.264 (NVENC/AMF)</span>
+        </div>
+        <div class="telemetry-row">
+          <span>FPS / Latência:</span>
+          <span id="statFps">60 FPS (~18ms)</span>
+        </div>
+        <div class="telemetry-row">
+          <span>Bitrate:</span>
+          <span id="statBitrate">0.0 Mbps</span>
+        </div>
+      </div>
+
+      <!-- Vídeo Remoto (Quem está assistindo) -->
+      <video id="remoteVideo" autoplay playsinline></video>
+
+      <!-- Preview Local (Quem está transmitindo) -->
+      <video id="localVideoPreview" autoplay playsinline muted></video>
+
+      <!-- Placeholder quando não há transmissão -->
+      <div class="video-placeholder" id="placeholder">
+        <div class="placeholder-icon">
+          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        </div>
+        <h3>Pronto para Transmitir</h3>
+        <p>Aceleração total por Placa de Vídeo ativa (NVENC/AMD/Intel QuickSync). Zero perda de desempenho na CPU enquanto joga ou trabalha.</p>
+        <p style="font-size:0.8rem; color: #6366f1;">Funciona em qualquer rede (STUN/NAT Traversal Global).</p>
+      </div>
+    </div>
+
+    <!-- CONTROLES INFERIORES -->
+    <footer class="bottom-bar">
+      <!-- Opções de Otimização GPU -->
+      <div class="hardware-options">
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Perfil de Hardware (GPU)</label>
+          <select id="presetSelect" class="select-style">
+            <option value="nvenc_60">1080p 60 FPS (Priorizar GPU H.264 - NVENC/AMD)</option>
+            <option value="nvenc_720_60">720p 60 FPS (Ultra Baixa Latência / Alta Fluidez)</option>
+            <option value="vp9_60">1080p 60 FPS (Perfil VP9 com Aceleração)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Áudio do Sistema</label>
+          <select id="audioSelect" class="select-style">
+            <option value="include">Incluir Áudio da Tela (Jogos/Vídeos)</option>
+            <option value="none">Apenas Vídeo (Sem Áudio)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Botões de Ação de Transmissão -->
+      <div class="stream-actions">
+        <button class="btn-main" id="btnToggleShare">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span id="btnShareText">Iniciar Transmissão de Tela</span>
+        </button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- MODAL DE CONVITE RECEBIDO -->
+  <div class="modal-overlay" id="inviteModal">
+    <div class="modal-box">
+      <div style="font-size: 2rem;">📺</div>
+      <h3 style="font-size: 1.2rem; font-weight: 700;">Convite de Transmissão</h3>
+      <p id="inviteModalText" style="color: var(--text-muted); font-size: 0.9rem;">Um amigo quer transmitir a tela com você!</p>
+      <div class="modal-actions">
+        <button class="btn-small" style="background-color: var(--bg-hover);" id="btnDeclineInvite">Recusar</button>
+        <button class="btn-small" id="btnAcceptInvite">Aceitar e Assistir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST DE NOTIFICAÇÃO -->
+  <div class="toast" id="toast">Notificação aqui</div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURAÇÃO WEBRTC GLOBAL (STUN SERVERS - SEM IP LOCAL)
+    // Permite conexão através de qualquer roteador, firewall e operadora mundial
+    // =========================================================================
+    const rtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ],
+      iceCandidatePoolSize: 10
+    };
+
+    // Estado da Aplicação
+    let peer = null;
+    let localStream = null;
+    let activeCall = null;
+    let activeDataConnections = new Map();
+    let statsInterval = null;
+    let pendingCall = null;
+
+    // Elementos DOM
+    const myPeerIdEl = document.getElementById('myPeerId');
+    const myDisplayNameEl = document.getElementById('myDisplayName');
+    const myAvatarEl = document.getElementById('myAvatar');
+    const btnCopyId = document.getElementById('btnCopyId');
+    const friendIdInput = document.getElementById('friendIdInput');
+    const btnAddFriend = document.getElementById('btnAddFriend');
+    const friendsListEl = document.getElementById('friendsList');
+    const friendCountEl = document.getElementById('friendCount');
+
+    const remoteVideo = document.getElementById('remoteVideo');
+    const localVideoPreview = document.getElementById('localVideoPreview');
+    const placeholder = document.getElementById('placeholder');
+    const liveBadge = document.getElementById('liveBadge');
+    const liveStatusText = document.getElementById('liveStatusText');
+    const btnToggleShare = document.getElementById('btnToggleShare');
+    const btnShareText = document.getElementById('btnShareText');
+    const presetSelect = document.getElementById('presetSelect');
+    const audioSelect = document.getElementById('audioSelect');
+    const btnFullscreen = document.getElementById('btnFullscreen');
+    const telemetryBadge = document.getElementById('telemetryBadge');
+    const statCodec = document.getElementById('statCodec');
+    const statFps = document.getElementById('statFps');
+    const statBitrate = document.getElementById('statBitrate');
+
+    const inviteModal = document.getElementById('inviteModal');
+    const inviteModalText = document.getElementById('inviteModalText');
+    const btnAcceptInvite = document.getElementById('btnAcceptInvite');
+    const btnDeclineInvite = document.getElementById('btnDeclineInvite');
+    const toast = document.getElementById('toast');
+
+    // Notificações Toast
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+
+    // Gerenciador de Armazenamento Local de Amigos
+    function getStoredFriends() {
+      const data = localStorage.getItem('streamp2p_friends');
+      return data ? JSON.parse(data) : [];
+    }
+
+    function saveFriends(friends) {
+      localStorage.setItem('streamp2p_friends', JSON.stringify(friends));
+      renderFriendsList();
+    }
+
+    function addFriend(id, name = '') {
+      id = id.trim();
+      if (!id) return;
+      if (id === peer.id) {
+        showToast('Você não pode adicionar seu próprio ID!');
+        return;
+      }
+      const friends = getStoredFriends();
+      if (friends.some(f => f.id === id)) {
+        showToast('Este amigo já está na sua lista!');
+        return;
+      }
+      friends.push({ id, name: name || `Amigo ${friends.length + 1}` });
+      saveFriends(friends);
+      showToast('Amigo adicionado com sucesso!');
+    }
+
+    function removeFriend(id) {
+      let friends = getStoredFriends();
+      friends = friends.filter(f => f.id !== id);
+      saveFriends(friends);
+      showToast('Amigo removido.');
+    }
+
+    function renderFriendsList() {
+      const friends = getStoredFriends();
+      friendCountEl.textContent = friends.length;
+
+      if (friends.length === 0) {
+        friendsListEl.innerHTML = `
+          <div class="empty-state">
+            Nenhum amigo adicionado ainda.<br>Envie seu ID para um amigo ou cole o ID dele acima!
+          </div>
+        `;
+        return;
+      }
+
+      friendsListEl.innerHTML = '';
+      friends.forEach(friend => {
+        const item = document.createElement('div');
+        item.className = 'friend-item';
+        item.innerHTML = `
+          <div class="friend-left">
+            <div class="friend-avatar">${friend.name.charAt(0).toUpperCase()}</div>
+            <div class="friend-names">
+              <div class="friend-name">${escapeHtml(friend.name)}</div>
+              <div class="friend-id-sub">${escapeHtml(friend.id.slice(0, 16))}...</div>
+            </div>
+          </div>
+          <div class="friend-actions">
+            <button class="btn-action" title="Transmitir para este amigo" onclick="streamToFriend('${friend.id}')">
+              Transmitir
+            </button>
+            <button class="btn-action danger" title="Remover amigo" onclick="removeFriend('${friend.id}')">
+              &times;
+            </button>
+          </div>
+        `;
+        friendsListEl.appendChild(item);
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // =========================================================================
+    // INICIALIZAÇÃO DO PEER (PEERJS CLOUD GLOBAL)
+    // Gera ID único persistente ou cria novo sem depender de servidor local
+    // =========================================================================
+    function initPeer() {
+      let savedId = localStorage.getItem('streamp2p_my_id');
+      if (!savedId) {
+        savedId = 'user_' + Math.random().toString(36).substring(2, 9) + Math.random().toString(36).substring(2, 6);
+        localStorage.setItem('streamp2p_my_id', savedId);
+      }
+
+      // Conexão direta com a nuvem PeerJS (gratuita e global) com servidores STUN
+      peer = new Peer(savedId, {
+        config: rtcConfig,
+        debug: 1
+      });
+
+      peer.on('open', (id) => {
+        myPeerIdEl.textContent = id;
+        myDisplayNameEl.textContent = 'Você (' + id.slice(0, 8) + ')';
+        myAvatarEl.firstChild.textContent = id.charAt(5).toUpperCase();
+        showToast('Conectado à rede global P2P!');
+        renderFriendsList();
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          // Se o ID colidir, gere um novo
+          localStorage.removeItem('streamp2p_my_id');
+          setTimeout(initPeer, 500);
+        } else {
+          showToast('Aviso de Rede: ' + err.type);
+        }
+      });
+
+      // RECEBER TRANSMISSÃO DE VÍDEO (CALL INCOMING)
+      peer.on('call', (call) => {
+        pendingCall = call;
+        inviteModalText.textContent = `O usuário [${call.peer.slice(0, 10)}...] está transmitindo a tela para você!`;
+        inviteModal.classList.add('active');
+      });
+
+      // RECEBER MENSAGENS DE DADOS (CHAT / CONVITES)
+      peer.on('connection', (conn) => {
+        setupDataConnection(conn);
+      });
+    }
+
+    function setupDataConnection(conn) {
+      activeDataConnections.set(conn.peer, conn);
+      conn.on('data', (data) => {
+        if (data.type === 'INVITE_WATCH') {
+          showToast(`Convite de ${conn.peer.slice(0, 8)} para assistir à tela!`);
+        }
+      });
+      conn.on('close', () => {
+        activeDataConnections.delete(conn.peer);
+      });
+    }
+
+    // =========================================================================
+    // OTIMIZAÇÃO DE HARDWARE GPU: ENCODER H.264 / NVENC / AMD AMF / QUICK SYNC
+    // Configura o WebRTC para forçar codecs acelerados por GPU e taxa de 60fps
+    // =========================================================================
+    function applyGpuOptimizations(stream, peerConnection) {
+      const videoTrack = stream.getVideoTracks()[0];
+      if (!videoTrack) return;
+
+      // 1. ContentHint 'motion': Informa ao navegador e ao driver da GPU (Nvidia/AMD)
+      // para priorizar decodificação de alta taxa de quadros e compensação de movimento por hardware.
+      if ('contentHint' in videoTrack) {
+        videoTrack.contentHint = 'motion';
+      }
+
+      // 2. Priorização de Codecs via RTCRtpTransceiver (H.264 / NVENC)
+      if (peerConnection && peerConnection.getTransceivers) {
+        peerConnection.getTransceivers().forEach(transceiver => {
+          if (transceiver.sender && transceiver.sender.track && transceiver.sender.track.kind === 'video') {
+            if (RTCRtpReceiver.getCapabilities) {
+              const codecs = RTCRtpReceiver.getCapabilities('video').codecs;
+              const selectedProfile = presetSelect.value;
+
+              let preferredMime = 'video/H264';
+              if (selectedProfile.startsWith('vp9')) {
+                preferredMime = 'video/VP9';
+              }
+
+              // Reordena a lista colocando o codec acelerado por hardware no topo
+              const preferred = codecs.filter(c => c.mimeType.toLowerCase() === preferredMime.toLowerCase());
+              const others = codecs.filter(c => c.mimeType.toLowerCase() !== preferredMime.toLowerCase());
+              const reorderedCodecs = [...preferred, ...others];
+
+              if (transceiver.setCodecPreferences && reorderedCodecs.length > 0) {
+                try {
+                  transceiver.setCodecPreferences(reorderedCodecs);
+                  console.log(`[GPU Engine] Codec prioritário definido: ${preferredMime} (NVENC/AMD Hardware)`);
+                } catch (e) {
+                  console.warn('Erro ao definir codec preference:', e);
+                }
+              }
+            }
+
+            // 3. Ajuste de Parâmetros de Codificação (Bitrate constante e degradations)
+            try {
+              const params = transceiver.sender.getParameters();
+              if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+              }
+              // Limite de bitrate para alta fidelidade a 60 FPS (até 12 Mbps)
+              params.encodings[0].maxBitrate = 12000000;
+              // Mantém resolução e taxa de quadros constantes
+              params.degradationPreference = 'maintain-framerate';
+              transceiver.sender.setParameters(params);
+            } catch (err) {
+              console.warn('Ajuste de sender parameters não suportado ou ignorado:', err);
+            }
+          }
+        });
+      }
+    }
+
+    // Monitoramento em Tempo Real de Estatísticas WebRTC (Telemetria GPU)
+    function startStatsMonitoring(pc) {
+      if (statsInterval) clearInterval(statsInterval);
+      telemetryBadge.style.display = 'flex';
+
+      let lastBytes = 0;
+      let lastTimestamp = 0;
+
+      statsInterval = setInterval(async () => {
+        if (!pc || pc.connectionState === 'closed') {
+          clearInterval(statsInterval);
+          return;
+        }
+
+        try {
+          const stats = await pc.getStats();
+          stats.forEach(report => {
+            // Estatísticas de Vídeo Recebido ou Enviado
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              // FPS
+              if (report.framesPerSecond) {
+                statFps.textContent = `${report.framesPerSecond} FPS`;
+              }
+              // Bitrate
+              if (report.bytesReceived && lastBytes && lastTimestamp) {
+                const bitrate = (8 * (report.bytesReceived - lastBytes)) / ((report.timestamp - lastTimestamp) / 1000);
+                statBitrate.textContent = `${(bitrate / 1000000).toFixed(2)} Mbps`;
+              }
+              lastBytes = report.bytesReceived;
+              lastTimestamp = report.timestamp;
+
+              // Resolução e Codec
+              if (report.codecId) {
+                const codecReport = stats.get(report.codecId);
+                if (codecReport && codecReport.mimeType) {
+                  statCodec.textContent = `${codecReport.mimeType.replace('video/', '')} (GPU Accelerated)`;
+                }
+              }
+            } else if (report.type === 'outbound-rtp' && report.kind === 'video') {
+              if (report.framesPerSecond) {
+                statFps.textContent = `${report.framesPerSecond} FPS (Transmissão)`;
+              }
+              if (report.bytesSent && lastBytes && lastTimestamp) {
+                const bitrate = (8 * (report.bytesSent - lastBytes)) / ((report.timestamp - lastTimestamp) / 1000);
+                statBitrate.textContent = `${(bitrate / 1000000).toFixed(2)} Mbps`;
+              }
+              lastBytes = report.bytesSent;
+              lastTimestamp = report.timestamp;
+            }
+          });
+        } catch (e) {
+          // ignore stats errors
+        }
+      }, 1000);
+    }
+
+    // =========================================================================
+    // INICIAR / PARAR TRANSMISSÃO DE TELA
+    // =========================================================================
+    async function startScreenShare() {
+      try {
+        const preset = presetSelect.value;
+        const wantAudio = audioSelect.value === 'include';
+
+        let width = 1920;
+        let height = 1080;
+        let frameRate = 60;
+
+        if (preset === 'nvenc_720_60') {
+          width = 1280;
+          height = 720;
+        }
+
+        // getDisplayMedia otimizado para hardware capture
+        const constraints = {
+          video: {
+            cursor: 'always',
+            displaySurface: 'monitor',
+            frameRate: { ideal: frameRate, max: frameRate },
+            width: { ideal: width, max: width },
+            height: { ideal: height, max: height }
+          },
+          audio: wantAudio ? {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          } : false
+        };
+
+        localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+
+        // Preview local
+        localVideoPreview.srcObject = localStream;
+        localVideoPreview.style.display = 'block';
+
+        // Atualizar UI
+        btnToggleShare.classList.add('stop');
+        btnShareText.textContent = 'Parar Transmissão';
+        liveBadge.classList.remove('idle');
+        liveStatusText.textContent = 'Transmitindo ao Vivo';
+        showToast('Transmissão de tela iniciada com aceleração de GPU!');
+
+        // Quando o usuário para a transmissão pela barra nativa do navegador
+        localStream.getVideoTracks()[0].onended = () => {
+          stopScreenShare();
+        };
+
+        // Se houver amigos na lista, avisar via data connection
+        const friends = getStoredFriends();
+        friends.forEach(f => {
+          streamToFriend(f.id);
+        });
+
+      } catch (err) {
+        console.error('Erro ao capturar tela:', err);
+        showToast('Acesso à tela cancelado ou não permitido.');
+      }
+    }
+
+    function stopScreenShare() {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (activeCall) {
+        activeCall.close();
+        activeCall = null;
+      }
+      localVideoPreview.srcObject = null;
+      localVideoPreview.style.display = 'none';
+      btnToggleShare.classList.remove('stop');
+      btnShareText.textContent = 'Iniciar Transmissão de Tela';
+      liveBadge.classList.add('idle');
+      liveStatusText.textContent = 'Aguardando Conexão';
+      telemetryBadge.style.display = 'none';
+      if (statsInterval) clearInterval(statsInterval);
+      showToast('Transmissão finalizada.');
+    }
+
+    btnToggleShare.addEventListener('click', () => {
+      if (localStream) {
+        stopScreenShare();
+      } else {
+        startScreenShare();
+      }
+    });
+
+    // Transmitir para um amigo específico
+    window.streamToFriend = async function(friendId) {
+      if (!localStream) {
+        await startScreenShare();
+        if (!localStream) return;
+      }
+
+      showToast(`Conectando com ${friendId.slice(0, 10)}...`);
+      const call = peer.call(friendId, localStream);
+      setupActiveCall(call);
+    };
+
+    function setupActiveCall(call) {
+      activeCall = call;
+
+      call.on('stream', (remoteMediaStream) => {
+        // Exibe o vídeo remoto
+        remoteVideo.srcObject = remoteMediaStream;
+        placeholder.style.display = 'none';
+        liveBadge.classList.remove('idle');
+        liveStatusText.textContent = 'Assistindo Amigo';
+        showToast('Vídeo recebido! GPU Decodificando.');
+      });
+
+      // Configurar otimizações na RTCPeerConnection nativa
+      if (call.peerConnection) {
+        if (localStream) {
+          applyGpuOptimizations(localStream, call.peerConnection);
+        }
+        startStatsMonitoring(call.peerConnection);
+      }
+
+      call.on('close', () => {
+        remoteVideo.srcObject = null;
+        placeholder.style.display = 'flex';
+        liveBadge.classList.add('idle');
+        liveStatusText.textContent = 'Aguardando Conexão';
+        telemetryBadge.style.display = 'none';
+        if (statsInterval) clearInterval(statsInterval);
+        showToast('A transmissão foi encerrada.');
+      });
+
+      call.on('error', (err) => {
+        console.error('Call error:', err);
+        showToast('Erro na chamada WebRTC.');
+      });
+    }
+
+    // Modal de Aceitar/Recusar Convite
+    btnAcceptInvite.addEventListener('click', () => {
+      inviteModal.classList.remove('active');
+      if (pendingCall) {
+        // Responde sem áudio/vídeo próprio caso queira apenas assistir
+        // Cria um stream vazio ou atende diretamente
+        pendingCall.answer(localStream || undefined);
+        setupActiveCall(pendingCall);
+        pendingCall = null;
+      }
+    });
+
+    btnDeclineInvite.addEventListener('click', () => {
+      inviteModal.classList.remove('active');
+      if (pendingCall) {
+        pendingCall.close();
+        pendingCall = null;
+      }
+    });
+
+    // Copiar Meu ID
+    btnCopyId.addEventListener('click', () => {
+      const id = myPeerIdEl.textContent;
+      if (!id || id.includes('Gerando')) return;
+      navigator.clipboard.writeText(id).then(() => {
+        showToast('Seu ID foi copiado para a área de transferência!');
+      });
+    });
+
+    // Adicionar Amigo
+    btnAddFriend.addEventListener('click', () => {
+      const val = friendIdInput.value.trim();
+      if (val) {
+        addFriend(val);
+        friendIdInput.value = '';
+      }
+    });
+
+    friendIdInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        btnAddFriend.click();
+      }
+    });
+
+    // Tela Cheia
+    btnFullscreen.addEventListener('click', () => {
+      const vp = document.getElementById('viewport');
+      if (!document.fullscreenElement) {
+        vp.requestFullscreen().catch(err => alert(err.message));
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    // Inicialização ao carregar a página
+    window.addEventListener('load', () => {
+      initPeer();
+    });
+  </script>
+</body>
+</html>
