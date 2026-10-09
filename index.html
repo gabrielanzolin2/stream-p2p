@@ -345,7 +345,7 @@
     }
 
     .logo-badge {
-      background: linear-gradient(135deg, var(--accent), #ec4899);
+      background: linear-gradient(135deg, #ef4444, #f97316);
       padding: 4px 10px;
       border-radius: 6px;
       font-size: 0.75rem;
@@ -664,7 +664,7 @@
   <main class="main-area">
     <header class="topbar">
       <div class="topbar-title">
-        <span class="logo-badge">GPU NVENC/AMD</span>
+        <span class="logo-badge" id="gpuBadge">AMD RADEON / GPU</span>
         <h2 style="font-size: 1.05rem; font-weight: 600;">StreamP2P Ultra</h2>
         <div class="stream-status-badge idle" id="liveBadge">
           <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
@@ -687,19 +687,19 @@
       <div class="gpu-telemetry-badge" id="telemetryBadge">
         <div class="telemetry-row">
           <span>Rota ICE:</span>
-          <span id="statIceRoute">Conectando P2P...</span>
+          <span id="statIceRoute">Conectando...</span>
         </div>
         <div class="telemetry-row">
           <span>Bitrate:</span>
-          <span id="statBitrate">Calculando...</span>
+          <span id="statBitrate">0.0 Mbps</span>
         </div>
         <div class="telemetry-row">
-          <span>Taxa FPS:</span>
+          <span>FPS:</span>
           <span id="statFps">60 FPS</span>
         </div>
         <div class="telemetry-row">
-          <span>Codec:</span>
-          <span id="statCodec">H.264 (NVENC/AMF)</span>
+          <span>Codec da GPU:</span>
+          <span id="statCodec">Negociando...</span>
         </div>
       </div>
 
@@ -713,7 +713,7 @@
       <div class="video-placeholder" id="placeholder">
         <div class="placeholder-icon">📺</div>
         <h3 style="font-size:1.2rem; font-weight:700;">Pronto para Transmitir ou Assistir</h3>
-        <p>Aceleração total por Placa de Vídeo ativa (NVENC / AMD / Intel QuickSync).</p>
+        <p>Aceleração via Placa de Vídeo ativa (Suporte nativo AMD Radeon / Nvidia).</p>
         <p style="font-size:0.85rem; color: #818cf8;">
           Para assistir à tela de um amigo, clique em <strong>"Assistir Tela"</strong> no cartão dele na barra lateral!
         </p>
@@ -724,11 +724,11 @@
     <footer class="bottom-bar">
       <div class="hardware-options">
         <div>
-          <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Perfil de Hardware (GPU)</label>
+          <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Perfil da Placa de Vídeo</label>
           <select id="presetSelect" class="select-style">
-            <option value="nvenc_60">1080p 60 FPS (Priorizar GPU H.264 - NVENC/AMD)</option>
-            <option value="nvenc_720_60">720p 60 FPS (Ultra Baixa Latência / Alta Fluidez)</option>
-            <option value="vp9_60">1080p 60 FPS (Perfil VP9 Acelerado)</option>
+            <option value="amd_safe" selected>AMD Radeon (VP9 / Fluido 60 FPS - Sem travar driver)</option>
+            <option value="auto_compat">Automático (WebRTC Padrão - Máxima Compatibilidade)</option>
+            <option value="nvenc_h264">Nvidia NVENC (H.264 Forçado - Apenas Nvidia)</option>
           </select>
         </div>
         <div>
@@ -766,7 +766,6 @@
   <script>
     // =========================================================================
     // SERVIDORES STUN + TURN GLOBAIS (SUPORTE COMPLETO A CGNAT / FIREWALLS)
-    // Se a conexão P2P direta for bloqueada pelo provedor, o TURN assume no porto 443!
     // =========================================================================
     const rtcConfig = {
       iceServers: [
@@ -801,6 +800,7 @@
     let pendingCall = null;
     let statsInterval = null;
     let lastStatsMap = new Map();
+    let zeroByteCounter = 0;
 
     // Elementos DOM
     const myPeerIdEl = document.getElementById('myPeerId');
@@ -915,7 +915,7 @@
       return d.innerHTML;
     }
 
-    // Stream dummy para resposta do observador garantindo que a negociação SDP se complete
+    // Criação de canvas dummy leve para responder a chamada com resposta SDP válida
     function createDummyStream() {
       try {
         const canvas = document.createElement('canvas');
@@ -931,7 +931,7 @@
     }
 
     // =========================================================================
-    // INICIALIZAÇÃO DO PEER (PEERJS CLOUD)
+    // INICIALIZAÇÃO PEERJS
     // =========================================================================
     function initPeer() {
       let savedId = localStorage.getItem('streamp2p_my_id');
@@ -1018,7 +1018,7 @@
         remoteVideo.srcObject = stream;
       }
 
-      remoteVideo.muted = true; // Força muted para desbloquear autoplay do navegador
+      remoteVideo.muted = true; // Muted garante autoplay sem bloqueio do navegador
 
       const playPromise = remoteVideo.play();
       if (playPromise !== undefined) {
@@ -1103,6 +1103,7 @@
       telemetryBadge.style.display = 'none';
       if (statsInterval) clearInterval(statsInterval);
       lastStatsMap.clear();
+      zeroByteCounter = 0;
       showToast('Transmissão encerrada.');
     }
 
@@ -1110,7 +1111,6 @@
     btnAcceptInvite.addEventListener('click', () => {
       inviteModal.classList.remove('active');
       if (pendingCall) {
-        // Envia uma stream dummy para garantir negociação SDP completa e veloz
         const dummy = createDummyStream();
         pendingCall.answer(dummy || undefined);
         if (pendingCall.remoteStream) {
@@ -1129,23 +1129,47 @@
     });
 
     // =========================================================================
-    // OTIMIZAÇÃO GPU (NVENC / AMD AMF)
+    // OTIMIZAÇÃO ESPECIAL PARA AMD RADEON RX 580 / POLARIS & NVIDIA
+    // Evita o travamento do driver da AMD ao priorizar VP9 e deixar negociação aberta
     // =========================================================================
     function applyGpuOptimizations(stream, pc) {
       const track = stream.getVideoTracks()[0];
       if (!track) return;
 
+      // Monitor de status da faixa da GPU
+      track.onmute = () => {
+        console.warn('Aviso: Driver da GPU pausou os quadros da tela.');
+      };
+      track.onunmute = () => {
+        console.log('Driver da GPU retomou envio de quadros.');
+      };
+
       if ('contentHint' in track) {
         track.contentHint = 'motion';
       }
 
+      const selectedPreset = presetSelect.value;
+
       if (pc && pc.getTransceivers) {
         pc.getTransceivers().forEach(transceiver => {
           if (transceiver.sender && transceiver.sender.track && transceiver.sender.track.kind === 'video') {
+            
+            // Se for modo Automático, não força nada para não colidir com o driver da AMD
+            if (selectedPreset === 'auto_compat') {
+              console.log('[GPU Engine] Modo Automático ativo: WebRTC decidindo com o driver AMD.');
+              return;
+            }
+
             if (RTCRtpReceiver.getCapabilities) {
               const codecs = RTCRtpReceiver.getCapabilities('video').codecs;
-              const selectedProfile = presetSelect.value;
-              let preferredMime = selectedProfile.startsWith('vp9') ? 'video/VP9' : 'video/H264';
+              let preferredMime = 'video/VP9';
+
+              if (selectedPreset === 'nvenc_h264') {
+                preferredMime = 'video/H264';
+              } else if (selectedPreset === 'amd_safe') {
+                // AMD Polaris (RX 580) roda perfeitamente em VP9 sem conflito com o Media Foundation
+                preferredMime = 'video/VP9';
+              }
 
               const preferred = codecs.filter(c => c.mimeType.toLowerCase() === preferredMime.toLowerCase());
               const others = codecs.filter(c => c.mimeType.toLowerCase() !== preferredMime.toLowerCase());
@@ -1154,15 +1178,18 @@
               if (transceiver.setCodecPreferences && sorted.length > 0) {
                 try {
                   transceiver.setCodecPreferences(sorted);
+                  console.log(`[GPU Engine] Codec ajustado: ${preferredMime}`);
                 } catch (e) {}
               }
             }
 
+            // Não força parâmetros rígidos de bitrate que quebram o encoder da RX 580
             try {
               const params = transceiver.sender.getParameters();
-              if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              params.encodings[0].maxBitrate = 14000000;
-              params.degradationPreference = 'maintain-framerate';
+              if (params.encodings && params.encodings.length > 0) {
+                // Configuração adaptativa segura para AMD e Nvidia
+                delete params.encodings[0].maxBitrate;
+              }
               transceiver.sender.setParameters(params);
             } catch (err) {}
           }
@@ -1171,12 +1198,13 @@
     }
 
     // =========================================================================
-    // CÁLCULO PRECISO DE BITRATE & TELEMETRIA GPU (CORRIGE BUG 0.0 MBPS)
+    // CÁLCULO DE TELEMETRIA + DETECÇÃO AUTOMÁTICA DE RECUSA DA GPU
     // =========================================================================
     function startStatsMonitoring(pc) {
       if (statsInterval) clearInterval(statsInterval);
       telemetryBadge.style.display = 'flex';
       lastStatsMap.clear();
+      zeroByteCounter = 0;
 
       statsInterval = setInterval(async () => {
         if (!pc || pc.connectionState === 'closed') {
@@ -1225,12 +1253,30 @@
                 if (timeDiff > 0 && bytesDiff >= 0) {
                   const mbps = ((bytesDiff * 8) / (timeDiff * 1000000)).toFixed(2);
                   statBitrate.textContent = `${mbps} Mbps (Enviando)`;
+
+                  if (bytesDiff === 0) {
+                    zeroByteCounter++;
+                  } else {
+                    zeroByteCounter = 0;
+                  }
                 }
               }
               lastStatsMap.set(report.id, { bytes: currentBytes, timestamp: currentTime });
 
               if (report.framesPerSecond) {
                 statFps.textContent = `${report.framesPerSecond} FPS`;
+              }
+              if (report.codecId) {
+                const codecReport = stats.get(report.codecId);
+                if (codecReport && codecReport.mimeType) {
+                  statCodec.textContent = `${codecReport.mimeType.replace('video/', '')}`;
+                }
+              }
+
+              // WATCHDOG: Se a GPU parar de produzir quadros por 4 segundos
+              if (zeroByteCounter >= 4) {
+                showToast('⚠️ A GPU parece ter pausado os quadros. Recomenda-se usar "AMD Radeon (VP9)" no perfil.');
+                zeroByteCounter = 0;
               }
             }
           });
@@ -1239,29 +1285,18 @@
     }
 
     // =========================================================================
-    // TRANSMISSÃO DE TELA
+    // CAPTURA DE TELA TOTALMENTE COMPATÍVEL COM AMD POLARIS / RADEON
     // =========================================================================
     async function startScreenShare() {
       try {
-        const preset = presetSelect.value;
         const wantAudio = audioSelect.value === 'include';
 
-        let width = 1920;
-        let height = 1080;
-        let frameRate = 60;
-
-        if (preset === 'nvenc_720_60') {
-          width = 1280;
-          height = 720;
-        }
-
+        // Restrições flexíveis sem travar min/max de resolução (evita falha de DXGI no driver AMD)
         const constraints = {
           video: {
             cursor: 'always',
             displaySurface: 'monitor',
-            frameRate: { ideal: frameRate, max: frameRate },
-            width: { ideal: width, max: width },
-            height: { ideal: height, max: height }
+            frameRate: { ideal: 60 }
           },
           audio: wantAudio ? {
             echoCancellation: false,
@@ -1272,6 +1307,7 @@
 
         localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
+        // Preview local
         localVideoPreview.srcObject = localStream;
         localVideoPreview.style.display = 'block';
 
@@ -1279,13 +1315,13 @@
         btnShareText.textContent = 'Parar Transmissão';
         liveBadge.className = 'stream-status-badge';
         liveStatusText.textContent = 'Transmitindo ao Vivo';
-        showToast('Transmissão de tela iniciada via GPU!');
+        showToast('Transmissão de tela iniciada com sucesso!');
 
         localStream.getVideoTracks()[0].onended = stopScreenShare;
 
       } catch (err) {
         console.error('Erro ao capturar tela:', err);
-        showToast('Captura de tela cancelada.');
+        showToast('Captura de tela cancelada ou recusada.');
       }
     }
 
@@ -1307,6 +1343,7 @@
       telemetryBadge.style.display = 'none';
       if (statsInterval) clearInterval(statsInterval);
       lastStatsMap.clear();
+      zeroByteCounter = 0;
       showToast('Transmissão finalizada.');
     }
 
