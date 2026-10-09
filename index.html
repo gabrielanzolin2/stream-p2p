@@ -40,7 +40,7 @@
       overflow: hidden;
     }
 
-    /* BARRA LATERAL (AMIGOS & IDENTIFICAÇÃO) */
+    /* BARRA LATERAL */
     .sidebar {
       width: 350px;
       background-color: var(--bg-card);
@@ -389,7 +389,6 @@
       overflow: hidden;
     }
 
-    /* Elementos de vídeo otimizados para GPU Direct Composition */
     #remoteVideo, #localVideoPreview {
       width: 100%;
       height: 100%;
@@ -438,7 +437,7 @@
       font-size: 2.5rem;
     }
 
-    /* BANNER DE DESMUTAR ÁUDIO (RESOLVE BLOQUEIO DE AUTOPLAY DO NAVEGADOR) */
+    /* BANNER DE DESMUTAR ÁUDIO */
     .unmute-banner {
       position: absolute;
       top: 20px;
@@ -467,7 +466,7 @@
       position: absolute;
       top: 20px;
       left: 20px;
-      background-color: rgba(11, 13, 19, 0.85);
+      background-color: rgba(11, 13, 19, 0.9);
       backdrop-filter: blur(10px);
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -622,7 +621,7 @@
 </head>
 <body>
 
-  <!-- BARRA LATERAL (AMIGOS E IDENTIFICAÇÃO) -->
+  <!-- BARRA LATERAL -->
   <aside class="sidebar">
     <div class="profile-card">
       <div class="profile-header">
@@ -679,7 +678,7 @@
     </header>
 
     <div class="video-viewport" id="viewport">
-      <!-- Botão Flutuante de Desmutar (Resolve bloqueio nativo de autoplay) -->
+      <!-- Botão Flutuante de Desmutar -->
       <div class="unmute-banner" id="unmuteBanner" onclick="enableAudio()">
         🔊 O navegador silenciou o vídeo. Clique aqui para ativar o Áudio!
       </div>
@@ -687,20 +686,20 @@
       <!-- Telemetria GPU / WebRTC -->
       <div class="gpu-telemetry-badge" id="telemetryBadge">
         <div class="telemetry-row">
-          <span>Decodificação:</span>
-          <span>GPU Hardware (Direct3D/Vulkan)</span>
-        </div>
-        <div class="telemetry-row">
-          <span>Codec Ativo:</span>
-          <span id="statCodec">H.264 (NVENC/AMF)</span>
-        </div>
-        <div class="telemetry-row">
-          <span>FPS / Latência:</span>
-          <span id="statFps">60 FPS</span>
+          <span>Rota ICE:</span>
+          <span id="statIceRoute">Conectando P2P...</span>
         </div>
         <div class="telemetry-row">
           <span>Bitrate:</span>
-          <span id="statBitrate">0.0 Mbps</span>
+          <span id="statBitrate">Calculando...</span>
+        </div>
+        <div class="telemetry-row">
+          <span>Taxa FPS:</span>
+          <span id="statFps">60 FPS</span>
+        </div>
+        <div class="telemetry-row">
+          <span>Codec:</span>
+          <span id="statCodec">H.264 (NVENC/AMF)</span>
         </div>
       </div>
 
@@ -716,7 +715,7 @@
         <h3 style="font-size:1.2rem; font-weight:700;">Pronto para Transmitir ou Assistir</h3>
         <p>Aceleração total por Placa de Vídeo ativa (NVENC / AMD / Intel QuickSync).</p>
         <p style="font-size:0.85rem; color: #818cf8;">
-          Para assistir à tela de um amigo, basta clicar em <strong>"Assistir Tela"</strong> no cartão dele na barra lateral!
+          Para assistir à tela de um amigo, clique em <strong>"Assistir Tela"</strong> no cartão dele na barra lateral!
         </p>
       </div>
     </div>
@@ -766,17 +765,31 @@
 
   <script>
     // =========================================================================
-    // SERVIDORES STUN GLOBAIS (SEM IP LOCAL - SUPORTE A NAT E FIREWALLS)
+    // SERVIDORES STUN + TURN GLOBAIS (SUPORTE COMPLETO A CGNAT / FIREWALLS)
+    // Se a conexão P2P direta for bloqueada pelo provedor, o TURN assume no porto 443!
     // =========================================================================
     const rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:openrelay.metered.ca:80' }
+        { urls: 'stun:openrelay.metered.ca:80' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelay',
+          credential: 'openrelay'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          username: 'openrelay',
+          credential: 'openrelay'
+        }
       ],
       iceCandidatePoolSize: 10
     };
@@ -787,7 +800,7 @@
     let activeCall = null;
     let pendingCall = null;
     let statsInterval = null;
-    let incomingStream = null;
+    let lastStatsMap = new Map();
 
     // Elementos DOM
     const myPeerIdEl = document.getElementById('myPeerId');
@@ -809,6 +822,7 @@
     const audioSelect = document.getElementById('audioSelect');
     const btnFullscreen = document.getElementById('btnFullscreen');
     const telemetryBadge = document.getElementById('telemetryBadge');
+    const statIceRoute = document.getElementById('statIceRoute');
     const statCodec = document.getElementById('statCodec');
     const statFps = document.getElementById('statFps');
     const statBitrate = document.getElementById('statBitrate');
@@ -825,7 +839,7 @@
       setTimeout(() => toast.classList.remove('show'), 3500);
     }
 
-    // Gerenciamento de Amigos (LocalStorage)
+    // Gerenciador de Amigos
     function getStoredFriends() {
       const data = localStorage.getItem('streamp2p_friends');
       return data ? JSON.parse(data) : [];
@@ -901,8 +915,23 @@
       return d.innerHTML;
     }
 
+    // Stream dummy para resposta do observador garantindo que a negociação SDP se complete
+    function createDummyStream() {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 16, 16);
+        return canvas.captureStream(1);
+      } catch (e) {
+        return null;
+      }
+    }
+
     // =========================================================================
-    // INICIALIZAÇÃO PEERJS
+    // INICIALIZAÇÃO DO PEER (PEERJS CLOUD)
     // =========================================================================
     function initPeer() {
       let savedId = localStorage.getItem('streamp2p_my_id');
@@ -934,7 +963,7 @@
         }
       });
 
-      // CANAL DE DADOS: Permite que um amigo peça para assistir ao vivo
+      // CANAL DE DADOS: Solicitação de transmissão instantânea
       peer.on('connection', (conn) => {
         conn.on('data', async (data) => {
           if (data && data.type === 'REQUEST_STREAM') {
@@ -943,7 +972,11 @@
               await startScreenShare();
             }
             if (localStream) {
-              peer.call(conn.peer, localStream);
+              const call = peer.call(conn.peer, localStream);
+              bindCallEvents(call);
+              if (call.peerConnection) {
+                applyGpuOptimizations(localStream, call.peerConnection);
+              }
             }
           }
         });
@@ -952,7 +985,6 @@
       // RECEBER TRANSMISSÃO DE TELA (OBSERVADOR)
       peer.on('call', (call) => {
         pendingCall = call;
-        // Prepara e amarra os listeners IMEDIATAMENTE para não perder o evento de stream
         bindCallEvents(call);
 
         inviteModalText.textContent = `O usuário [${call.peer.slice(0, 10)}...] está transmitindo a tela para você!`;
@@ -960,7 +992,7 @@
       });
     }
 
-    // Pedir para assistir a tela de um amigo com 1 clique
+    // Pedir para assistir com 1 clique
     window.requestWatchFriend = function(friendId) {
       showToast(`Solicitando transmissão de ${friendId.slice(0, 8)}...`);
       liveBadge.className = 'stream-status-badge connecting';
@@ -971,81 +1003,85 @@
         conn.send({ type: 'REQUEST_STREAM' });
       });
       conn.on('error', () => {
-        showToast('Não foi possível conectar ao amigo. Verifique se ele está com a página aberta.');
+        showToast('Não foi possível alcançar o amigo. Verifique se ele está online.');
       });
     };
 
     // =========================================================================
-    // REPRODUÇÃO ROBUSTA DO VÍDEO NO OBSERVADOR (RESOLVE AUTOPLAY & BLACK SCREEN)
+    // REPRODUÇÃO ROBUSTA DO VÍDEO NO OBSERVADOR
     // =========================================================================
     function attachStreamToViewer(stream) {
-      incomingStream = stream;
       placeholder.style.display = 'none';
       remoteVideo.style.display = 'block';
 
-      // 1. Vincula a stream ao elemento de vídeo
-      remoteVideo.srcObject = stream;
+      if (remoteVideo.srcObject !== stream) {
+        remoteVideo.srcObject = stream;
+      }
 
-      // 2. CRUCIAL: Inicializa mutado para GARANTIR que o navegador (Chrome/Edge/Brave)
-      // execute o autoplay sem travar nem dar tela preta por política de áudio
-      remoteVideo.muted = true;
+      remoteVideo.muted = true; // Força muted para desbloquear autoplay do navegador
 
       const playPromise = remoteVideo.play();
       if (playPromise !== undefined) {
         playPromise.then(() => {
           liveBadge.className = 'stream-status-badge';
           liveStatusText.textContent = 'Assistindo Amigo';
-          showToast('Tela conectada com sucesso!');
+          showToast('Vídeo conectado! Decodificação GPU ativa.');
 
-          // 3. Se a transmissão contiver faixa de áudio, exibe banner para ativar com 1 clique
           const audioTracks = stream.getAudioTracks();
           if (audioTracks.length > 0 && audioTracks[0].enabled) {
             unmuteBanner.style.display = 'flex';
           }
         }).catch(err => {
-          console.warn('Play falhou, tentando novamente:', err);
+          console.warn('Play falhou, forçando muted:', err);
           remoteVideo.muted = true;
           remoteVideo.play();
         });
       }
     }
 
-    // Ativar áudio pelo observador com 1 clique
     window.enableAudio = function() {
       remoteVideo.muted = false;
       unmuteBanner.style.display = 'none';
       showToast('Áudio da transmissão ativado!');
     };
 
-    // Amarração de eventos da chamada WebRTC (Evita perda de eventos assíncronos)
     function bindCallEvents(call) {
       activeCall = call;
 
-      // Evento padrão PeerJS
       call.on('stream', (stream) => {
         attachStreamToViewer(stream);
       });
 
-      // Fallback nativo WebRTC RTCPeerConnection ontrack (captura instantânea dos pacotes)
       if (call.peerConnection) {
-        call.peerConnection.ontrack = (event) => {
+        const pc = call.peerConnection;
+
+        pc.ontrack = (event) => {
           if (event.streams && event.streams[0]) {
             attachStreamToViewer(event.streams[0]);
+          } else if (event.track) {
+            const newStream = new MediaStream([event.track]);
+            attachStreamToViewer(newStream);
           }
         };
 
-        call.peerConnection.oniceconnectionstatechange = () => {
-          const state = call.peerConnection.iceConnectionState;
+        pc.oniceconnectionstatechange = () => {
+          const state = pc.iceConnectionState;
           if (state === 'connected' || state === 'completed') {
             liveBadge.className = 'stream-status-badge';
             liveStatusText.textContent = 'Assistindo Amigo';
+            statIceRoute.textContent = 'Conectado (Ultra Baixa Latência)';
+          } else if (state === 'checking') {
+            liveBadge.className = 'stream-status-badge connecting';
+            liveStatusText.textContent = 'Negociando Rota P2P...';
+            statIceRoute.textContent = 'Negociando STUN/TURN...';
           } else if (state === 'disconnected' || state === 'failed') {
             liveBadge.className = 'stream-status-badge idle';
             liveStatusText.textContent = 'Conexão Perdida';
+            statIceRoute.textContent = 'Desconectado';
           }
         };
 
-        startStatsMonitoring(call.peerConnection);
+        startStatsMonitoring(pc);
       }
 
       call.on('close', () => {
@@ -1066,15 +1102,17 @@
       liveStatusText.textContent = 'Aguardando Conexão';
       telemetryBadge.style.display = 'none';
       if (statsInterval) clearInterval(statsInterval);
+      lastStatsMap.clear();
       showToast('Transmissão encerrada.');
     }
 
-    // Modal de Aceitar Convite de Transmissão
+    // Modal de Aceitar Convite
     btnAcceptInvite.addEventListener('click', () => {
       inviteModal.classList.remove('active');
       if (pendingCall) {
-        // Responde sem mídia local (apenas observando)
-        pendingCall.answer();
+        // Envia uma stream dummy para garantir negociação SDP completa e veloz
+        const dummy = createDummyStream();
+        pendingCall.answer(dummy || undefined);
         if (pendingCall.remoteStream) {
           attachStreamToViewer(pendingCall.remoteStream);
         }
@@ -1091,18 +1129,16 @@
     });
 
     // =========================================================================
-    // OTIMIZAÇÃO GPU (NVENC / AMD AMF / INTEL QUICK SYNC)
+    // OTIMIZAÇÃO GPU (NVENC / AMD AMF)
     // =========================================================================
     function applyGpuOptimizations(stream, pc) {
       const track = stream.getVideoTracks()[0];
       if (!track) return;
 
-      // 1. Informa ao driver da placa de vídeo para priorizar motion vector estimation a 60fps
       if ('contentHint' in track) {
         track.contentHint = 'motion';
       }
 
-      // 2. Reordena codecs do RTCRtpTransceiver colocando H.264 (acelerado por hardware) no topo
       if (pc && pc.getTransceivers) {
         pc.getTransceivers().forEach(transceiver => {
           if (transceiver.sender && transceiver.sender.track && transceiver.sender.track.kind === 'video') {
@@ -1118,17 +1154,14 @@
               if (transceiver.setCodecPreferences && sorted.length > 0) {
                 try {
                   transceiver.setCodecPreferences(sorted);
-                } catch (e) {
-                  console.warn('Erro ao ordenar codecs:', e);
-                }
+                } catch (e) {}
               }
             }
 
-            // 3. Taxa constante e manutenção de FPS
             try {
               const params = transceiver.sender.getParameters();
               if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
-              params.encodings[0].maxBitrate = 14000000; // até 14 Mbps em 1080p 60fps
+              params.encodings[0].maxBitrate = 14000000;
               params.degradationPreference = 'maintain-framerate';
               transceiver.sender.setParameters(params);
             } catch (err) {}
@@ -1137,13 +1170,13 @@
       }
     }
 
-    // Monitoramento de Telemetria da GPU em tempo real
+    // =========================================================================
+    // CÁLCULO PRECISO DE BITRATE & TELEMETRIA GPU (CORRIGE BUG 0.0 MBPS)
+    // =========================================================================
     function startStatsMonitoring(pc) {
       if (statsInterval) clearInterval(statsInterval);
       telemetryBadge.style.display = 'flex';
-
-      let lastBytes = 0;
-      let lastTime = 0;
+      lastStatsMap.clear();
 
       statsInterval = setInterval(async () => {
         if (!pc || pc.connectionState === 'closed') {
@@ -1153,22 +1186,51 @@
 
         try {
           const stats = await pc.getStats();
-          stats.forEach(r => {
-            if ((r.type === 'inbound-rtp' || r.type === 'outbound-rtp') && r.kind === 'video') {
-              if (r.framesPerSecond) statFps.textContent = `${r.framesPerSecond} FPS`;
-              const bytes = r.bytesReceived || r.bytesSent;
-              if (bytes && lastBytes && lastTime) {
-                const bitrate = (8 * (bytes - lastBytes)) / ((r.timestamp - lastTime) / 1000);
-                statBitrate.textContent = `${(bitrate / 1000000).toFixed(2)} Mbps`;
-              }
-              lastBytes = bytes;
-              lastTime = r.timestamp;
+          stats.forEach(report => {
+            // Observador recebendo vídeo (Inbound)
+            if (report.type === 'inbound-rtp' && report.kind === 'video') {
+              const currentBytes = report.bytesReceived || 0;
+              const currentTime = report.timestamp;
+              const prev = lastStatsMap.get(report.id);
 
-              if (r.codecId) {
-                const codecReport = stats.get(r.codecId);
+              if (prev && currentTime > prev.timestamp) {
+                const bytesDiff = currentBytes - prev.bytes;
+                const timeDiff = (currentTime - prev.timestamp) / 1000;
+                if (timeDiff > 0 && bytesDiff >= 0) {
+                  const mbps = ((bytesDiff * 8) / (timeDiff * 1000000)).toFixed(2);
+                  statBitrate.textContent = `${mbps} Mbps`;
+                }
+              }
+              lastStatsMap.set(report.id, { bytes: currentBytes, timestamp: currentTime });
+
+              if (report.framesPerSecond) {
+                statFps.textContent = `${report.framesPerSecond} FPS`;
+              }
+              if (report.codecId) {
+                const codecReport = stats.get(report.codecId);
                 if (codecReport && codecReport.mimeType) {
                   statCodec.textContent = `${codecReport.mimeType.replace('video/', '')} (GPU Direct)`;
                 }
+              }
+            }
+            // Transmissor enviando vídeo (Outbound)
+            else if (report.type === 'outbound-rtp' && report.kind === 'video') {
+              const currentBytes = report.bytesSent || 0;
+              const currentTime = report.timestamp;
+              const prev = lastStatsMap.get(report.id);
+
+              if (prev && currentTime > prev.timestamp) {
+                const bytesDiff = currentBytes - prev.bytes;
+                const timeDiff = (currentTime - prev.timestamp) / 1000;
+                if (timeDiff > 0 && bytesDiff >= 0) {
+                  const mbps = ((bytesDiff * 8) / (timeDiff * 1000000)).toFixed(2);
+                  statBitrate.textContent = `${mbps} Mbps (Enviando)`;
+                }
+              }
+              lastStatsMap.set(report.id, { bytes: currentBytes, timestamp: currentTime });
+
+              if (report.framesPerSecond) {
+                statFps.textContent = `${report.framesPerSecond} FPS`;
               }
             }
           });
@@ -1177,7 +1239,7 @@
     }
 
     // =========================================================================
-    // INICIAR / PARAR MINHA TRANSMISSÃO
+    // TRANSMISSÃO DE TELA
     // =========================================================================
     async function startScreenShare() {
       try {
@@ -1210,7 +1272,6 @@
 
         localStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 
-        // Preview local
         localVideoPreview.srcObject = localStream;
         localVideoPreview.style.display = 'block';
 
@@ -1245,6 +1306,7 @@
       liveStatusText.textContent = 'Aguardando Conexão';
       telemetryBadge.style.display = 'none';
       if (statsInterval) clearInterval(statsInterval);
+      lastStatsMap.clear();
       showToast('Transmissão finalizada.');
     }
 
@@ -1253,7 +1315,6 @@
       else startScreenShare();
     });
 
-    // Transmitir para um amigo específico
     window.streamToFriend = async function(friendId) {
       if (!localStream) {
         await startScreenShare();
@@ -1268,7 +1329,6 @@
       }
     };
 
-    // Copiar Meu ID
     btnCopyId.addEventListener('click', () => {
       const id = myPeerIdEl.textContent;
       if (!id || id.includes('Gerando')) return;
@@ -1277,7 +1337,6 @@
       });
     });
 
-    // Adicionar Amigo
     btnAddFriend.addEventListener('click', () => {
       const val = friendIdInput.value.trim();
       if (val) {
@@ -1290,7 +1349,6 @@
       if (e.key === 'Enter') btnAddFriend.click();
     });
 
-    // Tela Cheia
     btnFullscreen.addEventListener('click', () => {
       const vp = document.getElementById('viewport');
       if (!document.fullscreenElement) vp.requestFullscreen();
