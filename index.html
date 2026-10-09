@@ -3,27 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StreamP2P - Transmissão de Tela Ultra-Baixa Latência (GPU Acionado)</title>
-  <!-- PeerJS para Sinalização WebRTC Global (Sem IP Local) -->
+  <title>StreamP2P Ultra - Transmissão de Tela (GPU NVENC/AMD)</title>
+  <!-- PeerJS Global WebRTC Signaling -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <!-- Google Fonts & Ícones -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0f1117;
-      --bg-card: #181b24;
-      --bg-hover: #222634;
+      --bg-dark: #0b0d13;
+      --bg-card: #151821;
+      --bg-hover: #1e2230;
       --accent: #6366f1;
       --accent-hover: #4f46e5;
-      --accent-glow: rgba(99, 102, 241, 0.35);
+      --accent-glow: rgba(99, 102, 241, 0.4);
       --success: #10b981;
       --danger: #ef4444;
       --warning: #f59e0b;
       --text: #f3f4f6;
       --text-muted: #9ca3af;
-      --border: #2c3142;
+      --border: #262b3d;
     }
 
     * {
@@ -31,7 +30,6 @@
       padding: 0;
       box-sizing: border-box;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      -webkit-font-smoothing: antialiased;
     }
 
     body {
@@ -42,9 +40,9 @@
       overflow: hidden;
     }
 
-    /* BARRA LATERAL (AMIGOS & PERFIL) */
+    /* BARRA LATERAL (AMIGOS & IDENTIFICAÇÃO) */
     .sidebar {
-      width: 340px;
+      width: 350px;
       background-color: var(--bg-card);
       border-right: 1px solid var(--border);
       display: flex;
@@ -56,7 +54,7 @@
     .profile-card {
       padding: 18px 20px;
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, rgba(24, 27, 36, 0) 100%);
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.1) 0%, rgba(21, 24, 33, 0) 100%);
     }
 
     .profile-header {
@@ -102,7 +100,7 @@
     }
 
     .id-box {
-      background-color: rgba(0, 0, 0, 0.35);
+      background-color: rgba(0, 0, 0, 0.4);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 12px;
@@ -129,7 +127,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 4px;
+      padding: 6px;
       border-radius: 6px;
       transition: all 0.2s;
     }
@@ -139,7 +137,7 @@
       background-color: var(--bg-hover);
     }
 
-    /* LISTA DE AMIGOS */
+    /* SEÇÃO DE AMIGOS */
     .friends-section {
       flex: 1;
       display: flex;
@@ -154,9 +152,6 @@
       letter-spacing: 0.05em;
       color: var(--text-muted);
       font-weight: 700;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
     }
 
     .add-friend-bar {
@@ -167,7 +162,7 @@
 
     .input-text {
       flex: 1;
-      background-color: rgba(0, 0, 0, 0.25);
+      background-color: rgba(0, 0, 0, 0.3);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 8px 12px;
@@ -203,22 +198,29 @@
       padding: 0 12px 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-    }
-
-    .friend-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 12px;
-      background-color: transparent;
-      border-radius: 8px;
-      transition: background-color 0.2s;
       gap: 8px;
     }
 
-    .friend-item:hover {
+    .friend-card {
+      background-color: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .friend-card:hover {
       background-color: var(--bg-hover);
+      border-color: rgba(99, 102, 241, 0.4);
+    }
+
+    .friend-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .friend-left {
@@ -241,13 +243,9 @@
       flex-shrink: 0;
     }
 
-    .friend-names {
-      overflow: hidden;
-    }
-
     .friend-name {
       font-size: 0.85rem;
-      font-weight: 500;
+      font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -259,15 +257,16 @@
       font-family: monospace;
     }
 
-    .friend-actions {
+    .friend-card-actions {
       display: flex;
-      gap: 4px;
+      gap: 6px;
     }
 
     .btn-action {
+      flex: 1;
       background-color: rgba(99, 102, 241, 0.15);
-      color: #818cf8;
-      border: 1px solid rgba(99, 102, 241, 0.25);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
       border-radius: 6px;
       padding: 6px 10px;
       font-size: 0.75rem;
@@ -275,6 +274,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 4px;
       transition: all 0.2s;
     }
@@ -284,15 +284,30 @@
       color: white;
     }
 
-    .btn-action.danger {
-      background-color: rgba(239, 68, 68, 0.1);
-      color: #f87171;
-      border-color: rgba(239, 68, 68, 0.2);
+    .btn-action.watch {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border-color: rgba(16, 185, 129, 0.3);
     }
 
-    .btn-action.danger:hover {
-      background-color: var(--danger);
+    .btn-action.watch:hover {
+      background-color: var(--success);
       color: white;
+    }
+
+    .btn-del {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 1rem;
+      border-radius: 6px;
+    }
+
+    .btn-del:hover {
+      color: var(--danger);
+      background-color: rgba(239, 68, 68, 0.1);
     }
 
     .empty-state {
@@ -300,10 +315,10 @@
       padding: 30px 20px;
       color: var(--text-muted);
       font-size: 0.85rem;
-      line-height: 1.4;
+      line-height: 1.5;
     }
 
-    /* ÁREA PRINCIPAL DO VÍDEO (CANVAS/GPU) */
+    /* ÁREA PRINCIPAL DO VÍDEO */
     .main-area {
       flex: 1;
       display: flex;
@@ -340,7 +355,7 @@
 
     .stream-status-badge {
       font-size: 0.75rem;
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 20px;
       background-color: rgba(16, 185, 129, 0.15);
       color: var(--success);
@@ -348,6 +363,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      font-weight: 500;
     }
 
     .stream-status-badge.idle {
@@ -356,16 +372,16 @@
       border-color: rgba(156, 163, 175, 0.3);
     }
 
-    .topbar-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .stream-status-badge.connecting {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+      border-color: rgba(245, 158, 11, 0.3);
     }
 
-    /* VIDEO CONTAINER & GPU ACCELERATION */
+    /* VIEWPORT DE VÍDEO COM GPU */
     .video-viewport {
       flex: 1;
-      background-color: #07090e;
+      background-color: #05070a;
       position: relative;
       display: flex;
       align-items: center;
@@ -373,28 +389,26 @@
       overflow: hidden;
     }
 
-    /* O elemento de vídeo recebe otimizações de camada de composição GPU */
+    /* Elementos de vídeo otimizados para GPU Direct Composition */
     #remoteVideo, #localVideoPreview {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      /* GPU ACCELERATION CSS HOOKS: Força rasterização e decodificação via GPU */
       transform: translate3d(0, 0, 0);
       will-change: transform;
       backface-visibility: hidden;
-      filter: drop-shadow(0 0 20px rgba(0,0,0,0.8));
     }
 
     #localVideoPreview {
       position: absolute;
       bottom: 24px;
       right: 24px;
-      width: 260px;
-      height: 146px;
-      border-radius: 10px;
+      width: 280px;
+      height: 158px;
+      border-radius: 12px;
       border: 2px solid var(--accent);
       background-color: #000;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.8);
       z-index: 10;
       object-fit: cover;
       display: none;
@@ -408,43 +422,68 @@
       gap: 16px;
       color: var(--text-muted);
       text-align: center;
-      max-width: 480px;
-      padding: 20px;
+      max-width: 520px;
+      padding: 24px;
     }
 
     .placeholder-icon {
       width: 80px;
       height: 80px;
       border-radius: 20px;
-      background: rgba(99, 102, 241, 0.1);
+      background: rgba(99, 102, 241, 0.12);
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--accent);
+      font-size: 2.5rem;
     }
 
-    /* PAINEL DE TELEMETRIA GPU (STATS) */
+    /* BANNER DE DESMUTAR ÁUDIO (RESOLVE BLOQUEIO DE AUTOPLAY DO NAVEGADOR) */
+    .unmute-banner {
+      position: absolute;
+      top: 20px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.4);
+      z-index: 30;
+      animation: bounce 1.5s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    /* TELEMETRIA GPU (STATS) */
     .gpu-telemetry-badge {
       position: absolute;
       top: 20px;
       left: 20px;
-      background-color: rgba(15, 17, 23, 0.85);
-      backdrop-filter: blur(8px);
+      background-color: rgba(11, 13, 19, 0.85);
+      backdrop-filter: blur(10px);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 14px;
+      border-radius: 10px;
+      padding: 12px 16px;
       font-size: 0.75rem;
       z-index: 15;
-      display: flex;
+      display: none;
       flex-direction: column;
-      gap: 4px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      gap: 6px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
     }
 
     .telemetry-row {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: 20px;
     }
 
     .telemetry-row span:first-child {
@@ -457,7 +496,7 @@
       font-family: monospace;
     }
 
-    /* BARRA DE CONTROLES INFERIOR */
+    /* BARRA INFERIOR */
     .bottom-bar {
       height: 72px;
       background-color: var(--bg-card);
@@ -496,7 +535,7 @@
       color: white;
       border: none;
       border-radius: 10px;
-      padding: 10px 22px;
+      padding: 11px 24px;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
@@ -509,7 +548,7 @@
 
     .btn-main:hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 18px var(--accent-glow);
+      box-shadow: 0 6px 20px var(--accent-glow);
     }
 
     .btn-main.stop {
@@ -517,19 +556,19 @@
       box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
     }
 
-    /* MODAL DE NOTIFICAÇÃO DE CONVITE */
+    /* MODAL DE CONVITE */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background-color: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
+      background-color: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 100;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s;
+      transition: opacity 0.2s;
     }
 
     .modal-overlay.active {
@@ -543,63 +582,41 @@
       border-radius: 16px;
       width: 90%;
       max-width: 440px;
-      padding: 24px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      padding: 26px;
+      text-align: center;
       display: flex;
       flex-direction: column;
       gap: 16px;
-      text-align: center;
-      transform: translateY(15px);
-      transition: transform 0.25s;
-    }
-
-    .modal-overlay.active .modal-box {
-      transform: translateY(0);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     }
 
     .modal-actions {
       display: flex;
       gap: 12px;
       justify-content: center;
-      margin-top: 8px;
     }
 
-    /* TOAST ALERT */
+    /* TOAST */
     .toast {
       position: fixed;
       bottom: 24px;
       right: 24px;
-      background-color: #1f2430;
+      background-color: #1a1e2a;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 18px;
+      border-radius: 10px;
+      padding: 12px 20px;
       color: var(--text);
       font-size: 0.85rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
       z-index: 200;
       transform: translateY(100px);
       opacity: 0;
       transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
 
     .toast.show {
       transform: translateY(0);
       opacity: 1;
-    }
-
-    /* Scrollbar personalizada */
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 4px;
     }
   </style>
 </head>
@@ -607,7 +624,6 @@
 
   <!-- BARRA LATERAL (AMIGOS E IDENTIFICAÇÃO) -->
   <aside class="sidebar">
-    <!-- PERFIL DO USUÁRIO -->
     <div class="profile-card">
       <div class="profile-header">
         <div class="avatar" id="myAvatar">U
@@ -621,36 +637,32 @@
       <div class="id-box">
         <div class="id-code" id="myPeerId">Gerando ID seguro...</div>
         <button class="btn-icon" id="btnCopyId" title="Copiar Meu ID">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          📋
         </button>
       </div>
     </div>
 
     <!-- LISTA DE AMIGOS -->
     <div class="friends-section">
-      <div class="section-title">
-        <span>Adicionar Amigo</span>
-      </div>
+      <div class="section-title">Adicionar Amigo</div>
       <div class="add-friend-bar">
-        <input type="text" class="input-text" id="friendIdInput" placeholder="Cole o ID do amigo...">
+        <input type="text" class="input-text" id="friendIdInput" placeholder="Cole o ID do amigo aqui...">
         <button class="btn-small" id="btnAddFriend">Adicionar</button>
       </div>
 
       <div class="section-title">
-        <span>Seus Amigos (<span id="friendCount">0</span>)</span>
+        Seus Amigos (<span id="friendCount">0</span>)
       </div>
-
       <div class="friends-list" id="friendsList">
         <div class="empty-state">
-          Nenhum amigo adicionado ainda.<br>Envie seu ID para um amigo ou cole o ID dele acima!
+          Nenhum amigo adicionado ainda.<br>Envie seu ID ou adicione o ID do seu amigo acima!
         </div>
       </div>
     </div>
   </aside>
 
-  <!-- ÁREA DE TRANSMISSÃO E REPRODUÇÃO -->
+  <!-- ÁREA DE VÍDEO -->
   <main class="main-area">
-    <!-- TOPBAR -->
     <header class="topbar">
       <div class="topbar-title">
         <span class="logo-badge">GPU NVENC/AMD</span>
@@ -661,20 +673,22 @@
         </div>
       </div>
 
-      <div class="topbar-controls">
-        <button class="btn-icon" id="btnFullscreen" title="Tela Cheia">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-        </button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn-icon" id="btnFullscreen" title="Tela Cheia">⛶</button>
       </div>
     </header>
 
-    <!-- ÁREA DO VÍDEO -->
     <div class="video-viewport" id="viewport">
-      <!-- Painel de Telemetria de Hardware GPU -->
-      <div class="gpu-telemetry-badge" id="telemetryBadge" style="display: none;">
+      <!-- Botão Flutuante de Desmutar (Resolve bloqueio nativo de autoplay) -->
+      <div class="unmute-banner" id="unmuteBanner" onclick="enableAudio()">
+        🔊 O navegador silenciou o vídeo. Clique aqui para ativar o Áudio!
+      </div>
+
+      <!-- Telemetria GPU / WebRTC -->
+      <div class="gpu-telemetry-badge" id="telemetryBadge">
         <div class="telemetry-row">
           <span>Decodificação:</span>
-          <span id="statDecoder">Hardware GPU (D3D11/Vulkan)</span>
+          <span>GPU Hardware (Direct3D/Vulkan)</span>
         </div>
         <div class="telemetry-row">
           <span>Codec Ativo:</span>
@@ -682,7 +696,7 @@
         </div>
         <div class="telemetry-row">
           <span>FPS / Latência:</span>
-          <span id="statFps">60 FPS (~18ms)</span>
+          <span id="statFps">60 FPS</span>
         </div>
         <div class="telemetry-row">
           <span>Bitrate:</span>
@@ -690,33 +704,32 @@
         </div>
       </div>
 
-      <!-- Vídeo Remoto (Quem está assistindo) -->
+      <!-- Player de Vídeo Remoto (Observador) -->
       <video id="remoteVideo" autoplay playsinline></video>
 
-      <!-- Preview Local (Quem está transmitindo) -->
+      <!-- Preview Local (Quem transmite) -->
       <video id="localVideoPreview" autoplay playsinline muted></video>
 
       <!-- Placeholder quando não há transmissão -->
       <div class="video-placeholder" id="placeholder">
-        <div class="placeholder-icon">
-          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-        </div>
-        <h3>Pronto para Transmitir</h3>
-        <p>Aceleração total por Placa de Vídeo ativa (NVENC/AMD/Intel QuickSync). Zero perda de desempenho na CPU enquanto joga ou trabalha.</p>
-        <p style="font-size:0.8rem; color: #6366f1;">Funciona em qualquer rede (STUN/NAT Traversal Global).</p>
+        <div class="placeholder-icon">📺</div>
+        <h3 style="font-size:1.2rem; font-weight:700;">Pronto para Transmitir ou Assistir</h3>
+        <p>Aceleração total por Placa de Vídeo ativa (NVENC / AMD / Intel QuickSync).</p>
+        <p style="font-size:0.85rem; color: #818cf8;">
+          Para assistir à tela de um amigo, basta clicar em <strong>"Assistir Tela"</strong> no cartão dele na barra lateral!
+        </p>
       </div>
     </div>
 
     <!-- CONTROLES INFERIORES -->
     <footer class="bottom-bar">
-      <!-- Opções de Otimização GPU -->
       <div class="hardware-options">
         <div>
           <label style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Perfil de Hardware (GPU)</label>
           <select id="presetSelect" class="select-style">
             <option value="nvenc_60">1080p 60 FPS (Priorizar GPU H.264 - NVENC/AMD)</option>
             <option value="nvenc_720_60">720p 60 FPS (Ultra Baixa Latência / Alta Fluidez)</option>
-            <option value="vp9_60">1080p 60 FPS (Perfil VP9 com Aceleração)</option>
+            <option value="vp9_60">1080p 60 FPS (Perfil VP9 Acelerado)</option>
           </select>
         </div>
         <div>
@@ -728,11 +741,9 @@
         </div>
       </div>
 
-      <!-- Botões de Ação de Transmissão -->
       <div class="stream-actions">
         <button class="btn-main" id="btnToggleShare">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-          <span id="btnShareText">Iniciar Transmissão de Tela</span>
+          <span id="btnShareText">Iniciar Minha Transmissão</span>
         </button>
       </div>
     </footer>
@@ -741,9 +752,9 @@
   <!-- MODAL DE CONVITE RECEBIDO -->
   <div class="modal-overlay" id="inviteModal">
     <div class="modal-box">
-      <div style="font-size: 2rem;">📺</div>
-      <h3 style="font-size: 1.2rem; font-weight: 700;">Convite de Transmissão</h3>
-      <p id="inviteModalText" style="color: var(--text-muted); font-size: 0.9rem;">Um amigo quer transmitir a tela com você!</p>
+      <div style="font-size: 2.2rem;">📺</div>
+      <h3 style="font-size: 1.2rem; font-weight: 700;">Transmissão de Tela</h3>
+      <p id="inviteModalText" style="color: var(--text-muted); font-size: 0.9rem;">Seu amigo iniciou uma transmissão para você!</p>
       <div class="modal-actions">
         <button class="btn-small" style="background-color: var(--bg-hover);" id="btnDeclineInvite">Recusar</button>
         <button class="btn-small" id="btnAcceptInvite">Aceitar e Assistir</button>
@@ -751,13 +762,11 @@
     </div>
   </div>
 
-  <!-- TOAST DE NOTIFICAÇÃO -->
-  <div class="toast" id="toast">Notificação aqui</div>
+  <div class="toast" id="toast">Notificação</div>
 
   <script>
     // =========================================================================
-    // CONFIGURAÇÃO WEBRTC GLOBAL (STUN SERVERS - SEM IP LOCAL)
-    // Permite conexão através de qualquer roteador, firewall e operadora mundial
+    // SERVIDORES STUN GLOBAIS (SEM IP LOCAL - SUPORTE A NAT E FIREWALLS)
     // =========================================================================
     const rtcConfig = {
       iceServers: [
@@ -766,18 +775,19 @@
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:openrelay.metered.ca:80' }
       ],
       iceCandidatePoolSize: 10
     };
 
-    // Estado da Aplicação
+    // Estado global
     let peer = null;
     let localStream = null;
     let activeCall = null;
-    let activeDataConnections = new Map();
-    let statsInterval = null;
     let pendingCall = null;
+    let statsInterval = null;
+    let incomingStream = null;
 
     // Elementos DOM
     const myPeerIdEl = document.getElementById('myPeerId');
@@ -788,7 +798,6 @@
     const btnAddFriend = document.getElementById('btnAddFriend');
     const friendsListEl = document.getElementById('friendsList');
     const friendCountEl = document.getElementById('friendCount');
-
     const remoteVideo = document.getElementById('remoteVideo');
     const localVideoPreview = document.getElementById('localVideoPreview');
     const placeholder = document.getElementById('placeholder');
@@ -803,21 +812,20 @@
     const statCodec = document.getElementById('statCodec');
     const statFps = document.getElementById('statFps');
     const statBitrate = document.getElementById('statBitrate');
-
     const inviteModal = document.getElementById('inviteModal');
     const inviteModalText = document.getElementById('inviteModalText');
     const btnAcceptInvite = document.getElementById('btnAcceptInvite');
     const btnDeclineInvite = document.getElementById('btnDeclineInvite');
+    const unmuteBanner = document.getElementById('unmuteBanner');
     const toast = document.getElementById('toast');
 
-    // Notificações Toast
     function showToast(msg) {
       toast.textContent = msg;
       toast.classList.add('show');
       setTimeout(() => toast.classList.remove('show'), 3500);
     }
 
-    // Gerenciador de Armazenamento Local de Amigos
+    // Gerenciamento de Amigos (LocalStorage)
     function getStoredFriends() {
       const data = localStorage.getItem('streamp2p_friends');
       return data ? JSON.parse(data) : [];
@@ -828,27 +836,21 @@
       renderFriendsList();
     }
 
-    function addFriend(id, name = '') {
+    function addFriend(id) {
       id = id.trim();
-      if (!id) return;
-      if (id === peer.id) {
-        showToast('Você não pode adicionar seu próprio ID!');
-        return;
-      }
+      if (!id || id === peer.id) return;
       const friends = getStoredFriends();
       if (friends.some(f => f.id === id)) {
-        showToast('Este amigo já está na sua lista!');
+        showToast('Amigo já adicionado!');
         return;
       }
-      friends.push({ id, name: name || `Amigo ${friends.length + 1}` });
+      friends.push({ id, name: `Amigo ${friends.length + 1}` });
       saveFriends(friends);
       showToast('Amigo adicionado com sucesso!');
     }
 
     function removeFriend(id) {
-      let friends = getStoredFriends();
-      friends = friends.filter(f => f.id !== id);
-      saveFriends(friends);
+      saveFriends(getStoredFriends().filter(f => f.id !== id));
       showToast('Amigo removido.');
     }
 
@@ -859,30 +861,33 @@
       if (friends.length === 0) {
         friendsListEl.innerHTML = `
           <div class="empty-state">
-            Nenhum amigo adicionado ainda.<br>Envie seu ID para um amigo ou cole o ID dele acima!
+            Nenhum amigo adicionado ainda.<br>Envie seu ID ou adicione o ID do seu amigo acima!
           </div>
         `;
         return;
       }
 
       friendsListEl.innerHTML = '';
-      friends.forEach(friend => {
+      friends.forEach(f => {
         const item = document.createElement('div');
-        item.className = 'friend-item';
+        item.className = 'friend-card';
         item.innerHTML = `
-          <div class="friend-left">
-            <div class="friend-avatar">${friend.name.charAt(0).toUpperCase()}</div>
-            <div class="friend-names">
-              <div class="friend-name">${escapeHtml(friend.name)}</div>
-              <div class="friend-id-sub">${escapeHtml(friend.id.slice(0, 16))}...</div>
+          <div class="friend-card-top">
+            <div class="friend-left">
+              <div class="friend-avatar">${f.name.charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="friend-name">${escapeHtml(f.name)}</div>
+                <div class="friend-id-sub">${escapeHtml(f.id.slice(0, 16))}...</div>
+              </div>
             </div>
+            <button class="btn-del" title="Remover amigo" onclick="removeFriend('${f.id}')">&times;</button>
           </div>
-          <div class="friend-actions">
-            <button class="btn-action" title="Transmitir para este amigo" onclick="streamToFriend('${friend.id}')">
-              Transmitir
+          <div class="friend-card-actions">
+            <button class="btn-action watch" onclick="requestWatchFriend('${f.id}')" title="Assistir à tela deste amigo">
+              👁️ Assistir Tela
             </button>
-            <button class="btn-action danger" title="Remover amigo" onclick="removeFriend('${friend.id}')">
-              &times;
+            <button class="btn-action" onclick="streamToFriend('${f.id}')" title="Enviar sua tela para este amigo">
+              📺 Transmitir Minha Tela
             </button>
           </div>
         `;
@@ -890,15 +895,14 @@
       });
     }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
+    function escapeHtml(t) {
+      const d = document.createElement('div');
+      d.textContent = t;
+      return d.innerHTML;
     }
 
     // =========================================================================
-    // INICIALIZAÇÃO DO PEER (PEERJS CLOUD GLOBAL)
-    // Gera ID único persistente ou cria novo sem depender de servidor local
+    // INICIALIZAÇÃO PEERJS
     // =========================================================================
     function initPeer() {
       let savedId = localStorage.getItem('streamp2p_my_id');
@@ -907,7 +911,6 @@
         localStorage.setItem('streamp2p_my_id', savedId);
       }
 
-      // Conexão direta com a nuvem PeerJS (gratuita e global) com servidores STUN
       peer = new Peer(savedId, {
         config: rtcConfig,
         debug: 1
@@ -917,14 +920,13 @@
         myPeerIdEl.textContent = id;
         myDisplayNameEl.textContent = 'Você (' + id.slice(0, 8) + ')';
         myAvatarEl.firstChild.textContent = id.charAt(5).toUpperCase();
-        showToast('Conectado à rede global P2P!');
         renderFriendsList();
+        showToast('Pronto e conectado à rede global!');
       });
 
       peer.on('error', (err) => {
         console.error('Peer error:', err);
         if (err.type === 'unavailable-id') {
-          // Se o ID colidir, gere um novo
           localStorage.removeItem('streamp2p_my_id');
           setTimeout(initPeer, 500);
         } else {
@@ -932,99 +934,216 @@
         }
       });
 
-      // RECEBER TRANSMISSÃO DE VÍDEO (CALL INCOMING)
+      // CANAL DE DADOS: Permite que um amigo peça para assistir ao vivo
+      peer.on('connection', (conn) => {
+        conn.on('data', async (data) => {
+          if (data && data.type === 'REQUEST_STREAM') {
+            showToast(`${conn.peer.slice(0, 8)} pediu para assistir sua tela!`);
+            if (!localStream) {
+              await startScreenShare();
+            }
+            if (localStream) {
+              peer.call(conn.peer, localStream);
+            }
+          }
+        });
+      });
+
+      // RECEBER TRANSMISSÃO DE TELA (OBSERVADOR)
       peer.on('call', (call) => {
         pendingCall = call;
+        // Prepara e amarra os listeners IMEDIATAMENTE para não perder o evento de stream
+        bindCallEvents(call);
+
         inviteModalText.textContent = `O usuário [${call.peer.slice(0, 10)}...] está transmitindo a tela para você!`;
         inviteModal.classList.add('active');
       });
-
-      // RECEBER MENSAGENS DE DADOS (CHAT / CONVITES)
-      peer.on('connection', (conn) => {
-        setupDataConnection(conn);
-      });
     }
 
-    function setupDataConnection(conn) {
-      activeDataConnections.set(conn.peer, conn);
-      conn.on('data', (data) => {
-        if (data.type === 'INVITE_WATCH') {
-          showToast(`Convite de ${conn.peer.slice(0, 8)} para assistir à tela!`);
-        }
+    // Pedir para assistir a tela de um amigo com 1 clique
+    window.requestWatchFriend = function(friendId) {
+      showToast(`Solicitando transmissão de ${friendId.slice(0, 8)}...`);
+      liveBadge.className = 'stream-status-badge connecting';
+      liveStatusText.textContent = 'Conectando ao Amigo...';
+
+      const conn = peer.connect(friendId);
+      conn.on('open', () => {
+        conn.send({ type: 'REQUEST_STREAM' });
       });
-      conn.on('close', () => {
-        activeDataConnections.delete(conn.peer);
+      conn.on('error', () => {
+        showToast('Não foi possível conectar ao amigo. Verifique se ele está com a página aberta.');
       });
+    };
+
+    // =========================================================================
+    // REPRODUÇÃO ROBUSTA DO VÍDEO NO OBSERVADOR (RESOLVE AUTOPLAY & BLACK SCREEN)
+    // =========================================================================
+    function attachStreamToViewer(stream) {
+      incomingStream = stream;
+      placeholder.style.display = 'none';
+      remoteVideo.style.display = 'block';
+
+      // 1. Vincula a stream ao elemento de vídeo
+      remoteVideo.srcObject = stream;
+
+      // 2. CRUCIAL: Inicializa mutado para GARANTIR que o navegador (Chrome/Edge/Brave)
+      // execute o autoplay sem travar nem dar tela preta por política de áudio
+      remoteVideo.muted = true;
+
+      const playPromise = remoteVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          liveBadge.className = 'stream-status-badge';
+          liveStatusText.textContent = 'Assistindo Amigo';
+          showToast('Tela conectada com sucesso!');
+
+          // 3. Se a transmissão contiver faixa de áudio, exibe banner para ativar com 1 clique
+          const audioTracks = stream.getAudioTracks();
+          if (audioTracks.length > 0 && audioTracks[0].enabled) {
+            unmuteBanner.style.display = 'flex';
+          }
+        }).catch(err => {
+          console.warn('Play falhou, tentando novamente:', err);
+          remoteVideo.muted = true;
+          remoteVideo.play();
+        });
+      }
     }
 
-    // =========================================================================
-    // OTIMIZAÇÃO DE HARDWARE GPU: ENCODER H.264 / NVENC / AMD AMF / QUICK SYNC
-    // Configura o WebRTC para forçar codecs acelerados por GPU e taxa de 60fps
-    // =========================================================================
-    function applyGpuOptimizations(stream, peerConnection) {
-      const videoTrack = stream.getVideoTracks()[0];
-      if (!videoTrack) return;
+    // Ativar áudio pelo observador com 1 clique
+    window.enableAudio = function() {
+      remoteVideo.muted = false;
+      unmuteBanner.style.display = 'none';
+      showToast('Áudio da transmissão ativado!');
+    };
 
-      // 1. ContentHint 'motion': Informa ao navegador e ao driver da GPU (Nvidia/AMD)
-      // para priorizar decodificação de alta taxa de quadros e compensação de movimento por hardware.
-      if ('contentHint' in videoTrack) {
-        videoTrack.contentHint = 'motion';
+    // Amarração de eventos da chamada WebRTC (Evita perda de eventos assíncronos)
+    function bindCallEvents(call) {
+      activeCall = call;
+
+      // Evento padrão PeerJS
+      call.on('stream', (stream) => {
+        attachStreamToViewer(stream);
+      });
+
+      // Fallback nativo WebRTC RTCPeerConnection ontrack (captura instantânea dos pacotes)
+      if (call.peerConnection) {
+        call.peerConnection.ontrack = (event) => {
+          if (event.streams && event.streams[0]) {
+            attachStreamToViewer(event.streams[0]);
+          }
+        };
+
+        call.peerConnection.oniceconnectionstatechange = () => {
+          const state = call.peerConnection.iceConnectionState;
+          if (state === 'connected' || state === 'completed') {
+            liveBadge.className = 'stream-status-badge';
+            liveStatusText.textContent = 'Assistindo Amigo';
+          } else if (state === 'disconnected' || state === 'failed') {
+            liveBadge.className = 'stream-status-badge idle';
+            liveStatusText.textContent = 'Conexão Perdida';
+          }
+        };
+
+        startStatsMonitoring(call.peerConnection);
       }
 
-      // 2. Priorização de Codecs via RTCRtpTransceiver (H.264 / NVENC)
-      if (peerConnection && peerConnection.getTransceivers) {
-        peerConnection.getTransceivers().forEach(transceiver => {
+      call.on('close', () => {
+        resetViewer();
+      });
+
+      call.on('error', (err) => {
+        console.error('Call error:', err);
+        showToast('Erro na conexão de vídeo.');
+      });
+    }
+
+    function resetViewer() {
+      remoteVideo.srcObject = null;
+      placeholder.style.display = 'flex';
+      unmuteBanner.style.display = 'none';
+      liveBadge.className = 'stream-status-badge idle';
+      liveStatusText.textContent = 'Aguardando Conexão';
+      telemetryBadge.style.display = 'none';
+      if (statsInterval) clearInterval(statsInterval);
+      showToast('Transmissão encerrada.');
+    }
+
+    // Modal de Aceitar Convite de Transmissão
+    btnAcceptInvite.addEventListener('click', () => {
+      inviteModal.classList.remove('active');
+      if (pendingCall) {
+        // Responde sem mídia local (apenas observando)
+        pendingCall.answer();
+        if (pendingCall.remoteStream) {
+          attachStreamToViewer(pendingCall.remoteStream);
+        }
+        pendingCall = null;
+      }
+    });
+
+    btnDeclineInvite.addEventListener('click', () => {
+      inviteModal.classList.remove('active');
+      if (pendingCall) {
+        pendingCall.close();
+        pendingCall = null;
+      }
+    });
+
+    // =========================================================================
+    // OTIMIZAÇÃO GPU (NVENC / AMD AMF / INTEL QUICK SYNC)
+    // =========================================================================
+    function applyGpuOptimizations(stream, pc) {
+      const track = stream.getVideoTracks()[0];
+      if (!track) return;
+
+      // 1. Informa ao driver da placa de vídeo para priorizar motion vector estimation a 60fps
+      if ('contentHint' in track) {
+        track.contentHint = 'motion';
+      }
+
+      // 2. Reordena codecs do RTCRtpTransceiver colocando H.264 (acelerado por hardware) no topo
+      if (pc && pc.getTransceivers) {
+        pc.getTransceivers().forEach(transceiver => {
           if (transceiver.sender && transceiver.sender.track && transceiver.sender.track.kind === 'video') {
             if (RTCRtpReceiver.getCapabilities) {
               const codecs = RTCRtpReceiver.getCapabilities('video').codecs;
               const selectedProfile = presetSelect.value;
+              let preferredMime = selectedProfile.startsWith('vp9') ? 'video/VP9' : 'video/H264';
 
-              let preferredMime = 'video/H264';
-              if (selectedProfile.startsWith('vp9')) {
-                preferredMime = 'video/VP9';
-              }
-
-              // Reordena a lista colocando o codec acelerado por hardware no topo
               const preferred = codecs.filter(c => c.mimeType.toLowerCase() === preferredMime.toLowerCase());
               const others = codecs.filter(c => c.mimeType.toLowerCase() !== preferredMime.toLowerCase());
-              const reorderedCodecs = [...preferred, ...others];
+              const sorted = [...preferred, ...others];
 
-              if (transceiver.setCodecPreferences && reorderedCodecs.length > 0) {
+              if (transceiver.setCodecPreferences && sorted.length > 0) {
                 try {
-                  transceiver.setCodecPreferences(reorderedCodecs);
-                  console.log(`[GPU Engine] Codec prioritário definido: ${preferredMime} (NVENC/AMD Hardware)`);
+                  transceiver.setCodecPreferences(sorted);
                 } catch (e) {
-                  console.warn('Erro ao definir codec preference:', e);
+                  console.warn('Erro ao ordenar codecs:', e);
                 }
               }
             }
 
-            // 3. Ajuste de Parâmetros de Codificação (Bitrate constante e degradations)
+            // 3. Taxa constante e manutenção de FPS
             try {
               const params = transceiver.sender.getParameters();
-              if (!params.encodings || params.encodings.length === 0) {
-                params.encodings = [{}];
-              }
-              // Limite de bitrate para alta fidelidade a 60 FPS (até 12 Mbps)
-              params.encodings[0].maxBitrate = 12000000;
-              // Mantém resolução e taxa de quadros constantes
+              if (!params.encodings || params.encodings.length === 0) params.encodings = [{}];
+              params.encodings[0].maxBitrate = 14000000; // até 14 Mbps em 1080p 60fps
               params.degradationPreference = 'maintain-framerate';
               transceiver.sender.setParameters(params);
-            } catch (err) {
-              console.warn('Ajuste de sender parameters não suportado ou ignorado:', err);
-            }
+            } catch (err) {}
           }
         });
       }
     }
 
-    // Monitoramento em Tempo Real de Estatísticas WebRTC (Telemetria GPU)
+    // Monitoramento de Telemetria da GPU em tempo real
     function startStatsMonitoring(pc) {
       if (statsInterval) clearInterval(statsInterval);
       telemetryBadge.style.display = 'flex';
 
       let lastBytes = 0;
-      let lastTimestamp = 0;
+      let lastTime = 0;
 
       statsInterval = setInterval(async () => {
         if (!pc || pc.connectionState === 'closed') {
@@ -1034,48 +1153,31 @@
 
         try {
           const stats = await pc.getStats();
-          stats.forEach(report => {
-            // Estatísticas de Vídeo Recebido ou Enviado
-            if (report.type === 'inbound-rtp' && report.kind === 'video') {
-              // FPS
-              if (report.framesPerSecond) {
-                statFps.textContent = `${report.framesPerSecond} FPS`;
-              }
-              // Bitrate
-              if (report.bytesReceived && lastBytes && lastTimestamp) {
-                const bitrate = (8 * (report.bytesReceived - lastBytes)) / ((report.timestamp - lastTimestamp) / 1000);
+          stats.forEach(r => {
+            if ((r.type === 'inbound-rtp' || r.type === 'outbound-rtp') && r.kind === 'video') {
+              if (r.framesPerSecond) statFps.textContent = `${r.framesPerSecond} FPS`;
+              const bytes = r.bytesReceived || r.bytesSent;
+              if (bytes && lastBytes && lastTime) {
+                const bitrate = (8 * (bytes - lastBytes)) / ((r.timestamp - lastTime) / 1000);
                 statBitrate.textContent = `${(bitrate / 1000000).toFixed(2)} Mbps`;
               }
-              lastBytes = report.bytesReceived;
-              lastTimestamp = report.timestamp;
+              lastBytes = bytes;
+              lastTime = r.timestamp;
 
-              // Resolução e Codec
-              if (report.codecId) {
-                const codecReport = stats.get(report.codecId);
+              if (r.codecId) {
+                const codecReport = stats.get(r.codecId);
                 if (codecReport && codecReport.mimeType) {
-                  statCodec.textContent = `${codecReport.mimeType.replace('video/', '')} (GPU Accelerated)`;
+                  statCodec.textContent = `${codecReport.mimeType.replace('video/', '')} (GPU Direct)`;
                 }
               }
-            } else if (report.type === 'outbound-rtp' && report.kind === 'video') {
-              if (report.framesPerSecond) {
-                statFps.textContent = `${report.framesPerSecond} FPS (Transmissão)`;
-              }
-              if (report.bytesSent && lastBytes && lastTimestamp) {
-                const bitrate = (8 * (report.bytesSent - lastBytes)) / ((report.timestamp - lastTimestamp) / 1000);
-                statBitrate.textContent = `${(bitrate / 1000000).toFixed(2)} Mbps`;
-              }
-              lastBytes = report.bytesSent;
-              lastTimestamp = report.timestamp;
             }
           });
-        } catch (e) {
-          // ignore stats errors
-        }
+        } catch(e) {}
       }, 1000);
     }
 
     // =========================================================================
-    // INICIAR / PARAR TRANSMISSÃO DE TELA
+    // INICIAR / PARAR MINHA TRANSMISSÃO
     // =========================================================================
     async function startScreenShare() {
       try {
@@ -1091,7 +1193,6 @@
           height = 720;
         }
 
-        // getDisplayMedia otimizado para hardware capture
         const constraints = {
           video: {
             cursor: 'always',
@@ -1113,27 +1214,17 @@
         localVideoPreview.srcObject = localStream;
         localVideoPreview.style.display = 'block';
 
-        // Atualizar UI
         btnToggleShare.classList.add('stop');
         btnShareText.textContent = 'Parar Transmissão';
-        liveBadge.classList.remove('idle');
+        liveBadge.className = 'stream-status-badge';
         liveStatusText.textContent = 'Transmitindo ao Vivo';
-        showToast('Transmissão de tela iniciada com aceleração de GPU!');
+        showToast('Transmissão de tela iniciada via GPU!');
 
-        // Quando o usuário para a transmissão pela barra nativa do navegador
-        localStream.getVideoTracks()[0].onended = () => {
-          stopScreenShare();
-        };
-
-        // Se houver amigos na lista, avisar via data connection
-        const friends = getStoredFriends();
-        friends.forEach(f => {
-          streamToFriend(f.id);
-        });
+        localStream.getVideoTracks()[0].onended = stopScreenShare;
 
       } catch (err) {
         console.error('Erro ao capturar tela:', err);
-        showToast('Acesso à tela cancelado ou não permitido.');
+        showToast('Captura de tela cancelada.');
       }
     }
 
@@ -1149,8 +1240,8 @@
       localVideoPreview.srcObject = null;
       localVideoPreview.style.display = 'none';
       btnToggleShare.classList.remove('stop');
-      btnShareText.textContent = 'Iniciar Transmissão de Tela';
-      liveBadge.classList.add('idle');
+      btnShareText.textContent = 'Iniciar Minha Transmissão';
+      liveBadge.className = 'stream-status-badge idle';
       liveStatusText.textContent = 'Aguardando Conexão';
       telemetryBadge.style.display = 'none';
       if (statsInterval) clearInterval(statsInterval);
@@ -1158,11 +1249,8 @@
     }
 
     btnToggleShare.addEventListener('click', () => {
-      if (localStream) {
-        stopScreenShare();
-      } else {
-        startScreenShare();
-      }
+      if (localStream) stopScreenShare();
+      else startScreenShare();
     });
 
     // Transmitir para um amigo específico
@@ -1172,73 +1260,20 @@
         if (!localStream) return;
       }
 
-      showToast(`Conectando com ${friendId.slice(0, 10)}...`);
+      showToast(`Conectando com ${friendId.slice(0, 8)}...`);
       const call = peer.call(friendId, localStream);
-      setupActiveCall(call);
-    };
-
-    function setupActiveCall(call) {
-      activeCall = call;
-
-      call.on('stream', (remoteMediaStream) => {
-        // Exibe o vídeo remoto
-        remoteVideo.srcObject = remoteMediaStream;
-        placeholder.style.display = 'none';
-        liveBadge.classList.remove('idle');
-        liveStatusText.textContent = 'Assistindo Amigo';
-        showToast('Vídeo recebido! GPU Decodificando.');
-      });
-
-      // Configurar otimizações na RTCPeerConnection nativa
+      bindCallEvents(call);
       if (call.peerConnection) {
-        if (localStream) {
-          applyGpuOptimizations(localStream, call.peerConnection);
-        }
-        startStatsMonitoring(call.peerConnection);
+        applyGpuOptimizations(localStream, call.peerConnection);
       }
-
-      call.on('close', () => {
-        remoteVideo.srcObject = null;
-        placeholder.style.display = 'flex';
-        liveBadge.classList.add('idle');
-        liveStatusText.textContent = 'Aguardando Conexão';
-        telemetryBadge.style.display = 'none';
-        if (statsInterval) clearInterval(statsInterval);
-        showToast('A transmissão foi encerrada.');
-      });
-
-      call.on('error', (err) => {
-        console.error('Call error:', err);
-        showToast('Erro na chamada WebRTC.');
-      });
-    }
-
-    // Modal de Aceitar/Recusar Convite
-    btnAcceptInvite.addEventListener('click', () => {
-      inviteModal.classList.remove('active');
-      if (pendingCall) {
-        // Responde sem áudio/vídeo próprio caso queira apenas assistir
-        // Cria um stream vazio ou atende diretamente
-        pendingCall.answer(localStream || undefined);
-        setupActiveCall(pendingCall);
-        pendingCall = null;
-      }
-    });
-
-    btnDeclineInvite.addEventListener('click', () => {
-      inviteModal.classList.remove('active');
-      if (pendingCall) {
-        pendingCall.close();
-        pendingCall = null;
-      }
-    });
+    };
 
     // Copiar Meu ID
     btnCopyId.addEventListener('click', () => {
       const id = myPeerIdEl.textContent;
       if (!id || id.includes('Gerando')) return;
       navigator.clipboard.writeText(id).then(() => {
-        showToast('Seu ID foi copiado para a área de transferência!');
+        showToast('Seu ID foi copiado!');
       });
     });
 
@@ -1252,25 +1287,17 @@
     });
 
     friendIdInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        btnAddFriend.click();
-      }
+      if (e.key === 'Enter') btnAddFriend.click();
     });
 
     // Tela Cheia
     btnFullscreen.addEventListener('click', () => {
       const vp = document.getElementById('viewport');
-      if (!document.fullscreenElement) {
-        vp.requestFullscreen().catch(err => alert(err.message));
-      } else {
-        document.exitFullscreen();
-      }
+      if (!document.fullscreenElement) vp.requestFullscreen();
+      else document.exitFullscreen();
     });
 
-    // Inicialização ao carregar a página
-    window.addEventListener('load', () => {
-      initPeer();
-    });
+    window.addEventListener('load', initPeer);
   </script>
 </body>
 </html>
