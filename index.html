@@ -903,29 +903,14 @@
       return d.innerHTML;
     }
 
-    // Criação de canvas dummy leve para responder a chamada com resposta SDP válida
-    function createDummyStream() {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 16;
-        canvas.height = 16;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, 16, 16);
-        return canvas.captureStream(1);
-      } catch (e) {
-        return null;
-      }
-    }
-
     // =========================================================================
-    // INICIALIZAÇÃO PEERJS
+    // INICIALIZAÇÃO PEERJS (CADA ABA GERA SEU PRÓPRIO ID PARA PERMITIR TESTES)
     // =========================================================================
     function initPeer() {
-      let savedId = localStorage.getItem('streamp2p_my_id');
+      let savedId = sessionStorage.getItem('streamp2p_my_id');
       if (!savedId) {
-        savedId = 'user_' + Math.random().toString(36).substring(2, 9) + Math.random().toString(36).substring(2, 6);
-        localStorage.setItem('streamp2p_my_id', savedId);
+        savedId = 'user_' + Math.random().toString(36).substring(2, 8) + '_' + Math.random().toString(36).substring(2, 6);
+        sessionStorage.setItem('streamp2p_my_id', savedId);
       }
 
       peer = new Peer(savedId, {
@@ -1099,11 +1084,7 @@
     btnAcceptInvite.addEventListener('click', () => {
       inviteModal.classList.remove('active');
       if (pendingCall) {
-        const dummy = createDummyStream();
-        pendingCall.answer(dummy || undefined);
-        if (pendingCall.remoteStream) {
-          attachStreamToViewer(pendingCall.remoteStream);
-        }
+        pendingCall.answer();
         pendingCall = null;
       }
     });
